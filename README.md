@@ -27,6 +27,7 @@ Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청
 | `jade_today` | 오늘 근무일, 출근·퇴근 시각, 근무시간 | 조회 |
 | `jade_vacation_balance` | 연차 발생·사용·잔여 | 조회 |
 | `jade_recent_applications` | 메인 화면의 최근 신청서와 결재 상태 | 조회 |
+| `jade_calendar` | 근태현황 달력의 한 달 치 날짜별 근무유형·실제 근무시각·날짜 칸 표시(연차휴가·출장 등) | 조회 |
 | `jade_prepare_punch` → `jade_commit_punch` | 출근·퇴근 기록 | 쓰기 |
 | `jade_prepare_vacation` → `jade_commit_vacation` | 휴가 신청서 상신 (시간 단위, 하루 안의 시각 범위 — 반차 등) | 쓰기 |
 | `jade_prepare_condolence` → `jade_commit_condolence` | 생일반차(오전·오후) 상신 | 쓰기 |
@@ -92,6 +93,7 @@ claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"
 ## 요청 예시
 
 - 「오늘 출근 시간이랑 연차 잔여 알려 줘」
+- 「이번 달에 휴가 쓴 날 알려 줘」 → `jade_calendar` 의 날짜 칸 표시(`연차휴가(2h)` 등)로 확인
 - 「퇴근 찍어 줘」 → 미리보기 확인 → 승인
 - 「11/6 금요일 오후 반차 올려 줘. 10시 출근 기준이야」 → 15:00~19:00, 4시간으로 미리보기 → 승인
 - 「11/20 생일 오후 반차 올려 줘」
