@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApplicationBlockedError } from "../src/appl.js";
 import { parsePage, PageStructureError } from "../src/page.js";
-import { checkScheduleRequest, parseCalendar, parseScheduleTokens } from "../src/schedule.js";
+import { checkScheduleRequest, parseCalendar, parseCalendarCall, parseScheduleTokens } from "../src/schedule.js";
 
 const cell = (ymd: string, able: "Y" | "N", type: string, time: string) =>
   `<td class='' ymd= '${ymd}' onclick='onClickTd(this);' weekDay=2 planAbleYn='${able}'><span class='day'>  2</span>` +
@@ -10,9 +10,26 @@ const cell = (ymd: string, able: "Y" | "N", type: string, time: string) =>
 describe("parseCalendar", () => {
   it("reads date, plannability, work type and plan time per cell", () => {
     expect(parseCalendar(cell("20261102", "Y", "선택근무제(IT)", "09:00~20:00") + cell("20261101", "N", "휴일", ""))).toEqual([
-      { ymd: "20261102", plannable: true, workType: "선택근무제(IT)", planTime: "09:00~20:00" },
-      { ymd: "20261101", plannable: false, workType: "휴일", planTime: "" },
+      { ymd: "20261102", plannable: true, workType: "선택근무제(IT)", planTime: "09:00~20:00", remarks: [] },
+      { ymd: "20261101", plannable: false, workType: "휴일", planTime: "", remarks: [] },
     ]);
+  });
+
+  it("reads span-wrapped past times and remark labels", () => {
+    const past =
+      `<td class='' ymd= '20261016' onclick='onClickTd(this);' weekDay=6 planAbleYn='N'><span class='day'> 16</span>` +
+      `<span class='workItem'><span>선택근무제(IT)</span></span><div class='contArea'><p class='workTime'><span>09:46~17:02</span></p>` +
+      `<ul class='workTimeList'><li><span class='wRemark re10 wRemarkTxt'>연차휴가(2h)</span></li></ul></div></td>`;
+    expect(parseCalendar(past)).toEqual([
+      { ymd: "20261016", plannable: false, workType: "선택근무제(IT)", planTime: "09:46~17:02", remarks: ["연차휴가(2h)"] },
+    ]);
+  });
+
+  it("treats the empty no-work marker as no time", () => {
+    const holiday =
+      `<td class='sun' ymd= '20261003' weekDay=7 planAbleYn='N'><span class='workItem'><span>개천절</span></span>` +
+      `<div class='contArea'><p class='workTime'><span class='noWorkTime'></span></p><ul class='workTimeList'></ul></div></td>`;
+    expect(parseCalendar(holiday)[0]).toMatchObject({ planTime: "", remarks: [] });
   });
 
   it("returns nothing for an empty calendar", () => {
@@ -69,6 +86,24 @@ describe("parseScheduleTokens", () => {
   it("fails closed when the save button is missing", () => {
     const html = popupHtml({ noSave: true });
     expect(() => parseScheduleTokens(html, parsePage(html))).toThrow(PageStructureError);
+  });
+});
+
+describe("parseCalendarCall", () => {
+  it("finds the calendar call even in the approval-based mode", () => {
+    const html = popupHtml({ mode: "WORKTYPE" });
+    expect(parseCalendarCall(html, parsePage(html))).toMatchObject({ dsClass: tok("Class"), calendar: tok("Calendar") });
+  });
+
+  it("finds the status screen call that refreshes application info first", () => {
+    const html = popupHtml().replace(`{\n      $(".e-cal")`, `{\n      getApplInfo();\t//(공통)-패키지\n      $(".e-cal")`);
+    expect(html).toContain("getApplInfo();");
+    expect(parseCalendarCall(html, parsePage(html)).calendar).toBe(tok("Calendar"));
+  });
+
+  it("fails closed when the calendar call is missing", () => {
+    const html = popupHtml().replace(".e-cal", ".x-cal");
+    expect(() => parseCalendarCall(html, parsePage(html))).toThrow(PageStructureError);
   });
 });
 

@@ -4,13 +4,14 @@ import { openMenu } from "./menu.js";
 import { PageStructureError, type PageContext } from "./page.js";
 import type { Params } from "./viewstate.js";
 
-// 「나의 근태현황」의 「일정등록」 버튼이 여는 팝업. 이 계정 설정(ETC)에서는 결재 없이 바로 저장된다.
-const POPUP = {
+// 「나의 근태현황」 화면. 이 화면 달력은 실제 근무시각을, 「일정등록」 팝업 달력은 계획 시각을 보여 준다.
+const STATUS = {
   pgmId: "ess_tam4_401_m02",
   pgmUrl: "/ess/tam4/ess_tam_401_m02.jsp",
-  menuNm: "일정등록",
-  popUrl: "/ess/tam4/ess_tam_401_p02.jsp",
+  menuNm: "근태현황",
 } as const;
+// 「일정등록」 버튼이 여는 팝업. 이 계정 설정(ETC)에서는 결재 없이 바로 저장된다.
+const POPUP = { ...STATUS, menuNm: "일정등록", popUrl: "/ess/tam4/ess_tam_401_p02.jsp" } as const;
 const CALENDAR_HTML_VSN = "F_TAM4_GET_CALENDAR_HTML_V03";
 
 export interface CalendarDay {
@@ -18,14 +19,19 @@ export interface CalendarDay {
   /** 일정을 바꿀 수 있는 날인지 (휴일 등은 N) */
   plannable: boolean;
   workType: string;
-  /** "09:00~20:00" 처럼 화면에 보이는 계획 시각. 없으면 빈 문자열 */
+  /** "09:00~20:00" 처럼 화면에 보이는 시각(팝업은 계획, 근태현황 화면은 실제). 없으면 빈 문자열 */
   planTime: string;
+  /** 날짜 칸 아래 표시(휴가 등) 원문. 예: "연차휴가(2h)" */
+  remarks: string[];
 }
 
-export interface ScheduleTokens {
+export interface CalendarCall {
   ctx: PageContext;
   dsClass: string;
   calendar: string;
+}
+
+export interface ScheduleTokens extends CalendarCall {
   workTypes: string;
   save: string;
 }
@@ -59,10 +65,20 @@ export function parseCalendar(html: string): CalendarDay[] {
       ymd,
       plannable: /\bplanAbleYn='Y'/i.test(attrs),
       workType: /<span class='workItem'><span>([^<]*)<\/span>/.exec(body)?.[1]?.trim() ?? "",
-      planTime: /<p class='workTime'>([^<]*)<\/p>/.exec(body)?.[1]?.trim() ?? "",
+      // 지난 날짜는 시각이 <span> 으로 한 번 더 감싸여 온다
+      planTime: (/<p class='workTime'>([\s\S]*?)<\/p>/.exec(body)?.[1] ?? "").replace(/<[^>]*>/g, "").trim(),
+      remarks: [...body.matchAll(/<span class='wRemark[^']*'>([^<]*)<\/span>/g)].map((r) => r[1]?.trim() ?? "").filter(Boolean),
     });
   }
   return days;
+}
+
+/** 화면 JS 에서 달력 조회 호출만 찾는다. 근태현황 화면은 달력을 비우기 전에 getApplInfo() 를 먼저 부른다. */
+export function parseCalendarCall(html: string, ctx: PageContext): CalendarCall {
+  const calendar = /case\s+"([^"]+)"\s*:\s*\{(?:\s*getApplInfo\(\);[^\n]*)?\s*\$\("\.e-cal"\)\.find\('tbody'\)\.html\(""\);/.exec(html)?.[1];
+  const dsClass = ctx.inputs.S_DSCLASS;
+  if (!calendar || !dsClass) throw new PageStructureError("달력 호출 토큰");
+  return { ctx, dsClass, calendar };
 }
 
 /** 팝업 JS 의 호출 토큰. 결재를 거치는 모드(근무유형 변경·신청)면 저장 흐름이 달라 지원하지 않는다. */
@@ -96,22 +112,32 @@ export function checkScheduleRequest(month: string, startHm: string, endHm: stri
   if (startHm >= endHm) throw new ApplicationBlockedError("종료 시각이 시작 시각보다 늦어야 한다 (자정을 넘는 일정은 지원하지 않는다)");
 }
 
-async function openPopup(client: JadeClient, main: PageContext): Promise<ScheduleTokens> {
+async function openPopup(client: JadeClient, main: PageContext) {
   const empId = main.inputs.S_EMP_ID || main.page.EMP_ID || "";
-  const { text, ctx } = await openMenu(client, main, { ...POPUP, extra: { S_EMP_ID: empId } });
-  return parseScheduleTokens(text, ctx);
+  return openMenu(client, main, { ...POPUP, extra: { S_EMP_ID: empId } });
 }
 
-async function readCalendar(client: JadeClient, t: ScheduleTokens, month: string): Promise<CalendarDay[]> {
+/** gbn "P" 는 팝업(계획 시각), "" 는 근태현황 화면(실제 시각) 달력이다. */
+async function readCalendar(client: JadeClient, t: CalendarCall, month: string, gbn: "P" | "" = "P"): Promise<CalendarDay[]> {
   const res = await client.call(t.ctx, t.dsClass, t.calendar, {
     S_SEL_YM: month,
     S_EMP_ID: t.ctx.inputs.S_EMP_ID ?? "",
-    S_GBN: "P",
+    S_GBN: gbn,
     S_HTML_VSN: CALENDAR_HTML_VSN,
   });
   const days = parseCalendar(res.etc.CAL_HTML ?? "").filter((d) => d.ymd.startsWith(month));
   if (days.length === 0) throw new PageStructureError(`${month} 달력`);
   return days;
+}
+
+/** 근태현황 화면 달력의 날짜 칸 전부(근무유형·실제 근무시각·휴가 등 표시)를 읽는다. 저장하지 않는다. */
+export async function fetchCalendar(client: JadeClient, month: string) {
+  if (!/^\d{4}(0[1-9]|1[0-2])$/.test(month)) throw new ApplicationBlockedError("월은 YYYYMM 형식이어야 한다");
+  return client.withSession(async (main) => {
+    const { text, ctx } = await openMenu(client, main, STATUS);
+    const days = await readCalendar(client, parseCalendarCall(text, ctx), month, "");
+    return days.map(({ ymd, workType, planTime, remarks }) => ({ ymd, workType, workTime: planTime, remarks }));
+  });
 }
 
 /**
@@ -124,7 +150,8 @@ export async function prepareSchedule(
 ): Promise<SchedulePlan> {
   checkScheduleRequest(req.month, req.startHm, req.endHm);
   return client.withSession(async (main) => {
-    const t = await openPopup(client, main);
+    const { text, ctx } = await openPopup(client, main);
+    const t = parseScheduleTokens(text, ctx);
     const empId = t.ctx.inputs.S_EMP_ID;
     if (!empId) throw new PageStructureError("#S_EMP_ID");
     const days = await readCalendar(client, t, req.month);

@@ -7,7 +7,7 @@ import { fetchMainInfo, toRecentApplications, toTodayStatus, toVacationBalance }
 import { PendingStore } from "./pending.js";
 import { commitPunch, preparePunch, type PunchPlan } from "./punch.js";
 import { commitCondolence, prepareCondolence, type CondolencePlan } from "./condolence.js";
-import { commitSchedule, prepareSchedule, type SchedulePlan } from "./schedule.js";
+import { commitSchedule, fetchCalendar, prepareSchedule, type SchedulePlan } from "./schedule.js";
 import { commitVacation, prepareVacation, type VacationPlan } from "./vacation.js";
 
 const config = await loadConfig();
@@ -60,6 +60,18 @@ server.registerTool(
     annotations: readOnly,
   },
   () => safely(async () => toRecentApplications(await fetchMainInfo(client))),
+);
+
+server.registerTool(
+  "jade_calendar",
+  {
+    title: "월 근태 달력",
+    description:
+      "JADE 「근태현황」 달력에서 한 달의 날짜별 근무유형·실제 근무시각과 날짜 칸 표시(연차휴가 등)를 조회한다. 저장하지 않는다.",
+    inputSchema: { month: z.string().regex(/^\d{6}$/).describe("조회 월 YYYYMM") },
+    annotations: readOnly,
+  },
+  ({ month }) => safely(async () => fetchCalendar(client, month)),
 );
 
 const punches = new PendingStore<PunchPlan>(5 * 60 * 1000);
