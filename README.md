@@ -9,6 +9,17 @@ JADE eHR(`ehr.jadehr.co.kr`)을 Claude Code 같은 MCP 클라이언트에서 쓸
 
 > JADE 공식 도구가 아닙니다. JADE 화면 구조가 바뀌면 동작하지 않을 수 있고, 그럴 때는 요청을 보내지 않고 멈추도록 만들었습니다.
 
+## 빠른 시작
+
+```sh
+git clone https://github.com/choiyounggi/jade-mcp.git && cd jade-mcp
+npm ci
+bin/jade-mcp-setup                                     # 회사코드·아이디 입력, 비밀번호는 Keychain 에 저장
+claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"   # Claude Code 에 등록
+```
+
+Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청해 보세요.
+
 ## 할 수 있는 일
 
 | 도구 | 하는 일 | 종류 |
@@ -33,7 +44,8 @@ JADE eHR(`ehr.jadehr.co.kr`)을 Claude Code 같은 MCP 클라이언트에서 쓸
 - macOS (비밀번호를 Keychain에 저장하고, 회사망 인증서를 시스템 인증서 저장소에서 읽습니다)
 - Node.js 22 이상
 - JADE 계정 (2차 인증이 꺼져 있어야 합니다)
-- 출근·퇴근 기록은 JADE에 등록된 회사 IP에서만 됩니다. 조회와 신청은 어디서든 됩니다.
+- 브라우저는 필요 없습니다. 실행 중에 브라우저를 띄우지 않습니다.
+- 출근·퇴근 기록은 JADE에 등록된 IP(회사 네트워크)에서만 저장됩니다.
 
 ## 설치
 
@@ -96,6 +108,23 @@ claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"
 | 출퇴근 기록이 IP 때문에 막힘 | 회사 네트워크(등록된 IP)에서 다시 시도하세요 |
 | `JADE 화면 구조가 예상과 달라 ... 중단한다` | JADE가 바뀐 경우입니다. 요청은 보내지 않았습니다. 이슈로 알려 주세요 |
 
+## 자주 묻는 질문
+
+**브라우저(Chrome·Aside 등)가 있어야 하나요?**
+아니요. JADE 화면이 보내는 HTTP 요청을 직접 보냅니다. setup 의 「브라우저 핑거프린트」는 선택 항목이라, 비워 두면 자동으로 만듭니다.
+
+**비밀번호는 어디에 저장되나요?**
+macOS Keychain 에만 저장됩니다(항목 이름 `jade-mcp`). 설정 파일에는 들어가지 않고, 로그인할 때 Keychain 에서 읽어 JADE 서버로만 보냅니다.
+
+**로그인은 언제 하나요?**
+도구를 처음 부를 때 로그인하고, 세션이 끊기면 다시 로그인합니다. 따로 켜 둘 필요가 없습니다.
+
+**Claude Code 말고 다른 클라이언트에서도 되나요?**
+stdio MCP 서버라서 `bin/jade-mcp` 를 실행하도록 등록하면 됩니다.
+
+**업데이트는 어떻게 하나요?**
+`git pull && npm ci` 후 Claude Code 를 다시 엽니다. 계정 설정은 그대로 남습니다.
+
 ## 지원하지 않는 것
 
 - 종일·여러 날 연차 신청 (하루 안의 시각 범위만 지원합니다)
@@ -119,3 +148,7 @@ npm run typecheck   # 타입 검사
 - `src/index.ts` — MCP 도구 등록
 
 JADE의 호출 토큰은 화면을 열 때마다 바뀌어서, 매번 화면 HTML을 받아 호출 위치의 코드 모양으로 토큰을 찾습니다. 찾지 못하면 요청을 보내지 않습니다.
+
+## 라이선스
+
+[MIT](LICENSE)

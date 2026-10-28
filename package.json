@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "JADE eHR 를 Claude Code 같은 MCP 클라이언트에서 쓰게 해 주는 로컬 MCP 서버 (macOS)",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22"
