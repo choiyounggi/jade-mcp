@@ -1,0 +1,4 @@
+#!/bin/sh
+# MCP 클라이언트는 서버를 최소 환경변수로 띄워 NODE_EXTRA_CA_CERTS 가 빠진다.
+# 회사망 TLS 검사 인증서를 신뢰하도록 macOS 시스템 CA 저장소를 쓴다.
+cd "$(dirname "$0")/.." && exec node --use-system-ca --import tsx src/index.ts

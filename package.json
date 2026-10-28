@@ -1,0 +1,29 @@
+{
+  "name": "jade-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JADE eHR 를 Claude Code 같은 MCP 클라이언트에서 쓰게 해 주는 로컬 MCP 서버 (macOS)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "bin/jade-mcp",
+    "setup": "bin/jade-mcp-setup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  },
+  "os": [
+    "darwin"
+  ]
+}
