@@ -9,6 +9,7 @@ import { commitPunch, preparePunch, type PunchPlan } from "./punch.js";
 import { commitCondolence, prepareCondolence, type CondolencePlan } from "./condolence.js";
 import { commitSchedule, fetchCalendar, prepareSchedule, type SchedulePlan } from "./schedule.js";
 import { commitVacation, prepareVacation, type VacationPlan } from "./vacation.js";
+import { commitRemoteWork, localYmd, prepareMonthlyRemoteWork, WEEKDAYS, type RemoteWorkPlan } from "./remote.js";
 
 const config = await loadConfig();
 const client = new JadeClient(config, () => readKeychainPassword(config.keychainService, config.userId));
@@ -153,6 +154,53 @@ server.registerTool(
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   ({ token }) => safely(async () => commitVacation(client, vacations.take(token))),
+);
+
+// 여러 날을 한 번에 준비하므로 미리보기를 읽고 승인할 시간을 다른 쓰기 도구보다 넉넉히 둔다.
+const remoteWorks = new PendingStore<RemoteWorkPlan["preview"]>(15 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_remote_work",
+  {
+    title: "재택근무 신청 준비 (월·요일)",
+    description:
+      "한 달의 지정 요일마다 JADE 재택 근무 신청서를 한 장씩 상신 직전까지 채우고 마감 검사를 통과시킨 뒤, 날짜별 미리보기와 " +
+      "일회용 토큰을 돌려준다. 상신하지 않는다. 그 달의 주는 첫 평일이 든 주부터 평일이 다음 달로 넘어가지 않는 주까지이며, " +
+      "주중(월~금)에 공휴일이 있거나 휴가 표시가 있는 주, 이미 재택이거나 지난 날짜는 빼고 그 사유를 skipped 로 알려 준다. " +
+      "1일이 목·금이면 첫 주의 요일이 전달 날짜일 수 있다. 결재 대기 중인 신청은 달력에 안 보일 수 있으니 같은 날을 두 번 상신하지 않게 주의한다. " +
+      "사유는 「M월 D일 재택근무 신청드립니다.」. 사용자가 미리보기를 확인하고 승인한 뒤에만 날짜마다 jade_commit_remote_work 로 상신한다.",
+    inputSchema: {
+      month: z.string().regex(/^\d{6}$/).describe("신청 월 YYYYMM"),
+      weekday: z.enum(WEEKDAYS).describe("재택 요일 mon|tue|wed|thu|fri"),
+    },
+    annotations: readOnly,
+  },
+  (req) =>
+    safely(async () => {
+      const batch = await prepareMonthlyRemoteWork(client, req, localYmd());
+      return {
+        month: batch.month,
+        weekday: batch.weekday,
+        applications: batch.plans.map((p) => {
+          const { token, expiresAt } = remoteWorks.put(p.preview);
+          return { ...p.preview, token, expiresAt: expiresAt.toISOString() };
+        }),
+        skipped: batch.skipped,
+      };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_remote_work",
+  {
+    title: "재택근무 신청 상신 (한 건)",
+    description:
+      "jade_prepare_remote_work 가 날짜별로 준 토큰 하나로 그날의 재택 근무 신청서 한 장을 결재선에 상신한다. 상신 직전에 화면을 새로 열어 " +
+      "검사를 다시 통과하고 미리보기와 같을 때만 보낸다. 결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_remote_work 가 그 날짜에 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitRemoteWork(client, remoteWorks.take(token))),
 );
 
 const condolences = new PendingStore<CondolencePlan>(5 * 60 * 1000);
