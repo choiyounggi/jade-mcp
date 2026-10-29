@@ -1,3 +1,11 @@
 #!/bin/sh
 # 계정 설정은 터미널에서 직접 실행한다 (비밀번호 입력이 필요하다).
-cd "$(dirname "$0")/.." && exec node --use-system-ca --import tsx src/setup.ts "$@"
+cd "$(dirname "$0")/.." || exit 1
+. bin/node-env.sh
+NODE=$(jade_find_node) || exit 1
+# npm ci 가 끝까지 돌았을 때만 생기는 파일로 판단한다 — 중간에 실패한 node_modules 는 다시 설치한다.
+if [ ! -f node_modules/.package-lock.json ]; then
+  echo "의존성을 설치한다 (npm ci)..."
+  PATH="$(dirname "$NODE"):$PATH" npm ci --no-audit --no-fund || exit 1
+fi
+exec "$NODE" --use-system-ca --import tsx src/setup.ts "$@"

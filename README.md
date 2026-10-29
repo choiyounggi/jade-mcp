@@ -12,12 +12,10 @@ JADE eHR(`ehr.jadehr.co.kr`)을 Claude Code 같은 MCP 클라이언트에서 쓸
 ## 빠른 시작
 
 ```sh
-git clone https://github.com/choiyounggi/jade-mcp.git && cd jade-mcp
-npm ci
-bin/jade-mcp-setup                                     # 회사코드·아이디 입력, 비밀번호는 Keychain 에 저장
-claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"   # Claude Code 에 등록
+git clone https://github.com/choiyounggi/jade-mcp.git && jade-mcp/bin/jade-mcp-setup
 ```
 
+setup 하나가 의존성 설치(`npm ci`) → 회사코드·아이디 입력 → 비밀번호 Keychain 저장 → 로그인 확인 → Claude Code 등록까지 합니다.
 Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청해 보세요.
 
 ## 할 수 있는 일
@@ -44,7 +42,8 @@ Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청
 ## 준비물
 
 - macOS (비밀번호를 Keychain에 저장하고, 회사망 인증서를 시스템 인증서 저장소에서 읽습니다)
-- Node.js 22 이상
+- Node.js **22.23.4 / 24.22.1 / 26.12.1 이상** — TLS 인증서 호스트 검사 우회(CVE-2026-105483 등)가 고쳐진 보안 패치 버전입니다.
+  PATH 의 node 가 이보다 낮으면 nvm·Homebrew(`node@24` 같은 버전 지정 설치 포함)로 설치된 node 중 조건에 맞는 것을 찾아 쓰고, 없으면 실행하지 않습니다(`nvm install 24`).
 - JADE 계정 (2차 인증이 꺼져 있어야 합니다)
 - 브라우저는 필요 없습니다. 실행 중에 브라우저를 띄우지 않습니다.
 - 출근·퇴근 기록은 JADE에 등록된 IP(회사 네트워크)에서만 저장됩니다.
@@ -53,16 +52,16 @@ Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청
 
 ```sh
 git clone https://github.com/choiyounggi/jade-mcp.git
-cd jade-mcp
-npm ci
 ```
+
+의존성(`npm ci`)은 아래 setup 이 처음 실행될 때 설치합니다.
 
 ## 계정 설정
 
 터미널에서 직접 실행합니다. 비밀번호를 입력해야 하기 때문입니다.
 
 ```sh
-bin/jade-mcp-setup
+jade-mcp/bin/jade-mcp-setup
 ```
 
 묻는 항목은 다음과 같습니다. 대괄호 안의 값은 엔터만 치면 그대로 쓰는 기본값입니다.
@@ -75,13 +74,18 @@ bin/jade-mcp-setup
 | 브라우저 핑거프린트 | 선택. JADE에 로그인한 브라우저의 개발자도구 콘솔에서 `getJadeFP()` 를 실행한 결과. 비우면 임의 값을 만들어 계속 씁니다 |
 | 비밀번호 | macOS `security` 의 입력창에 두 번 입력. 이 프로그램은 비밀번호를 받지 않고, `security` 가 바로 Keychain에 넣습니다 |
 
-설정이 끝나면 실제로 로그인해서 오늘 출퇴근 정보를 보여 주고, Claude Code 등록 명령을 알려 줍니다.
+설정이 끝나면 실제로 로그인해서 오늘 출퇴근 정보를 보여 주고, Claude Code 에 등록할지 묻습니다(엔터 = 등록).
+로그인에 실패하면 비밀번호를 다시 입력할지 묻습니다(최대 3번). 회사코드·아이디가 틀린 경우라면 n 을 누르고 setup 을 다시 실행하세요.
 
-- 설정 파일: `~/.config/jade-mcp/config.json` (권한 600, 비밀번호는 들어가지 않습니다)
+- 설정 파일: `~/.config/jade-mcp/config.json` (파일 600·폴더 700, 비밀번호는 들어가지 않습니다)
 - 비밀번호: Keychain 항목 `jade-mcp` / 계정명 = JADE 아이디
-- 비밀번호를 바꿨다면 `bin/jade-mcp-setup --password` 로 다시 저장합니다.
+- 비밀번호를 바꿨다면 `jade-mcp/bin/jade-mcp-setup --password` 로 다시 저장합니다.
 
 ## Claude Code에 등록
+
+setup 이 user 범위(기본 설정 `~/.claude.json`)로 등록하므로 모든 프로젝트·세션에서 보입니다.
+지금 셸이 `CLAUDE_CONFIG_DIR` 로 다른 설정 폴더를 쓰고 있으면 그곳에도 함께 등록합니다.
+직접 등록하려면 레포 폴더에서:
 
 ```sh
 claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"
@@ -107,9 +111,10 @@ claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"
 
 | 증상 | 원인과 해결 |
 |---|---|
-| `fetch failed (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)` | 회사망의 TLS 검사 인증서를 신뢰하지 못한 경우입니다. `bin/jade-mcp` 로 실행하면 `--use-system-ca` 로 시스템 인증서를 씁니다. Node 22 이상인지 확인하세요 |
-| `설정 파일 ... 이 없다` | `bin/jade-mcp-setup` 을 먼저 실행하세요 |
-| `Keychain 에서 JADE 비밀번호를 찾지 못했다` | `bin/jade-mcp-setup --password` 로 비밀번호를 다시 저장하세요 |
+| `fetch failed (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)` | 회사망의 TLS 검사 인증서를 신뢰하지 못한 경우입니다. `bin/jade-mcp` 로 실행하면 `--use-system-ca` 로 시스템 인증서를 씁니다 |
+| `보안 패치된 Node 가 없다` | 준비물의 Node 버전을 설치하세요 (예: `nvm install 24`). 기본 node 를 바꿀 필요는 없습니다 |
+| `설정 파일 ... 이 없다` | `jade-mcp/bin/jade-mcp-setup` 을 먼저 실행하세요 |
+| `Keychain 에서 JADE 비밀번호를 찾지 못했다` | `jade-mcp/bin/jade-mcp-setup --password` 로 비밀번호를 다시 저장하세요 |
 | `2차 인증이 켜진 계정` | 2차 인증 계정은 자동 로그인을 할 수 없습니다 |
 | 출퇴근 기록이 IP 때문에 막힘 | 회사 네트워크(등록된 IP)에서 다시 시도하세요 |
 | `JADE 화면 구조가 예상과 달라 ... 중단한다` | JADE가 바뀐 경우입니다. 요청은 보내지 않았습니다. 이슈로 알려 주세요 |
@@ -130,6 +135,16 @@ stdio MCP 서버라서 `bin/jade-mcp` 를 실행하도록 등록하면 됩니다
 
 **업데이트는 어떻게 하나요?**
 `git pull && npm ci` 후 Claude Code 를 다시 엽니다. 계정 설정은 그대로 남습니다.
+
+**지우려면 어떻게 하나요?**
+
+```sh
+claude mcp remove jade -s user                   # Claude Code 등록 해제 (setup 때 CLAUDE_CONFIG_DIR 를 썼다면 그 셸에서 한 번 더)
+security delete-generic-password -s jade-mcp     # Keychain 비밀번호 삭제
+rm -r ~/.config/jade-mcp                         # 설정 파일 삭제
+```
+
+마지막으로 내려받은 `jade-mcp` 폴더를 지웁니다.
 
 ## 지원하지 않는 것
 
