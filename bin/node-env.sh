@@ -2,7 +2,7 @@
 #
 # 최소 버전은 TLS 인증서 호스트 검사 우회(CVE-2026-105483·106069·106072)와 Brotli 메모리 오류
 # (CVE-2026-111497)가 고쳐진 버전이다 — JADE 와의 HTTPS 검증이 이 패치에 기댄다.
-# 다음 보안 릴리스가 나오면 아래 값과 package.json engines 를 함께 올린다.
+# 다음 보안 릴리스가 나오면 아래 값과 bin/node-min.cjs, package.json engines 를 함께 올린다.
 JADE_NODE_MIN="22.23.4 / 24.22.1 / 26.12.1 이상 (23·25 는 지원 종료)"
 
 jade_node_ok() {

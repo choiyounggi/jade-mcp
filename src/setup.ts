@@ -1,12 +1,14 @@
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { JadeClient, LoginError } from "./client.js";
-import { CONFIG_PATH, readKeychainPassword, type JadeConfig } from "./config.js";
+import { CONFIG_PATH, readKeychainPassword, saveConfig, type JadeConfig } from "./config.js";
+import { formatDoctor, runDoctor } from "./doctor.js";
 import { fetchMainInfo, toTodayStatus } from "./features.js";
 
 export const DEFAULTS = {
@@ -98,14 +100,31 @@ function runClaude(args: string[], configDir: string | null): Promise<{ code: nu
   });
 }
 
-/** Claude Code 에 jade MCP 를 user 범위로 등록한다. 이미 같은 경로로 있으면 건드리지 않는다. */
-async function registerClaude(launcher: string): Promise<void> {
-  const manual = `  claude mcp add jade -s user -- "${launcher}"`;
+/**
+ * Claude Code 에 등록할 서버 실행 명령. npm 패키지(dist/)로 돌고 있으면 지금 버전으로 고정한 npx 명령을,
+ * git clone 한 레포에서 돌면 레포의 실행기를 그대로 쓴다.
+ */
+function packageVersion(): string {
+  return (createRequire(import.meta.url)("../package.json") as { version: string }).version;
+}
+
+export function launchCommand(moduleUrl: string): string[] {
+  const here = dirname(fileURLToPath(moduleUrl));
+  // 비밀번호를 다루는 도구라 실행할 때마다 레지스트리 최신본을 받지 않는다 — 버전을 고정하고 업데이트는 사용자가 고른다.
+  if (/[\\/]dist$/.test(here)) return ["npx", "-y", `jade-mcp@${packageVersion()}`];
+  return [resolve(here, "..", "bin", "jade-mcp")];
+}
+
+/** Claude Code 에 jade MCP 를 user 범위로 등록한다. 이미 같은 명령으로 있으면 건드리지 않는다. */
+async function registerClaude(command: string[]): Promise<void> {
+  const manual = `  claude mcp add jade -s user -- ${command.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(" ")}`;
+  // `claude mcp get` 은 명령과 인자를 따로 보여 주므로 마지막 토큰(실행기 경로·패키지 이름)으로 같은지 본다.
+  const marker = command.at(-1) ?? "";
   for (const dir of registrationTargets(process.env)) {
     const where = dir ? `설정 폴더 ${dir}` : "기본 설정(~/.claude.json)";
     try {
       const existing = await runClaude(["mcp", "get", "jade"], dir);
-      if (existing.code === 0 && existing.out.includes(launcher)) {
+      if (existing.code === 0 && existing.out.includes(marker)) {
         console.log(`이미 등록돼 있다 — ${where}`);
         continue;
       }
@@ -113,7 +132,7 @@ async function registerClaude(launcher: string): Promise<void> {
         console.log(`${where} 에 다른 경로의 jade 가 이미 있다(어느 범위인지는 claude mcp get jade). 지우고 다시 등록하려면:\n  claude mcp remove jade -s <범위> && \\\n${manual}`);
         continue;
       }
-      const added = await runClaude(["mcp", "add", "jade", "-s", "user", "--", launcher], dir);
+      const added = await runClaude(["mcp", "add", "jade", "-s", "user", "--", ...command], dir);
       if (added.code !== 0) throw new Error(added.out.trim() || `종료 코드 ${added.code}`);
       console.log(`등록했다 — ${where}`);
     } catch (e) {
@@ -135,7 +154,13 @@ async function confirm(question: string, byDefault = true): Promise<boolean> {
   }
 }
 
-async function main(): Promise<void> {
+/** 터미널 온보딩: 점검 → 계정 입력 → Keychain 저장 → 로그인 확인 → Claude Code 등록. */
+export async function runSetup(): Promise<void> {
+  const report = await runDoctor();
+  console.log(`${formatDoctor(report)}\n`);
+  if (report.checks.some((c) => c.status === "fail" && (c.id === "os" || c.id === "node"))) {
+    throw new Error("위 점검을 먼저 해결해야 한다");
+  }
   const previous = await readPrevious();
   const rl = createInterface({ input: stdin, output: stdout });
   // question() 은 미리 들어온 입력 줄을 놓친다(붙여넣기·파이프). 줄 반복자는 줄을 버퍼에 모아 둔다.
@@ -167,12 +192,7 @@ async function main(): Promise<void> {
     console.log("\n기존 Keychain 비밀번호를 그대로 쓴다 (바꾸려면 --password 로 다시 실행).");
   }
 
-  await mkdir(dirname(CONFIG_PATH), { recursive: true, mode: 0o700 });
-  await writeFile(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-  // mode 는 새로 만들 때만 적용된다 — 기존 파일·폴더도 본인만 읽게 맞춘다.
-  // JADE_MCP_CONFIG 로 경로를 바꿨으면 그 폴더는 사용자 것이라 권한을 건드리지 않는다.
-  await chmod(CONFIG_PATH, 0o600);
-  if (!process.env.JADE_MCP_CONFIG) await chmod(dirname(CONFIG_PATH), 0o700);
+  await saveConfig(config);
   console.log(`설정을 저장했다: ${CONFIG_PATH}`);
 
   console.log("\n로그인을 확인한다...");
@@ -191,16 +211,16 @@ async function main(): Promise<void> {
     }
   }
 
-  const launcher = resolve(dirname(fileURLToPath(import.meta.url)), "..", "bin", "jade-mcp");
+  const command = launchCommand(import.meta.url);
   if (await confirm("\nClaude Code 에 jade MCP 를 등록할까?")) {
-    await registerClaude(launcher);
+    await registerClaude(command);
   } else {
-    console.log(`나중에 등록하려면:\n  claude mcp add jade -s user -- ${launcher}`);
+    console.log(`나중에 등록하려면:\n  claude mcp add jade -s user -- ${command.join(" ")}`);
   }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((e: unknown) => {
+  runSetup().catch((e: unknown) => {
     console.error(`설정 실패: ${(e as Error).message}`);
     process.exitCode = 1;
   });

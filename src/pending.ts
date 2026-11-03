@@ -28,6 +28,11 @@ export class PendingStore<T> {
     return item.value;
   }
 
+  /** 계정이 바뀌면 이전 계정으로 준비한 계획을 새 세션으로 보내지 않도록 모두 버린다. */
+  clear(): void {
+    this.items.clear();
+  }
+
   private sweep(): void {
     const now = this.now();
     for (const [k, v] of this.items) if (v.expiresAt < now) this.items.delete(k);

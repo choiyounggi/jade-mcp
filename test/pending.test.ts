@@ -23,4 +23,11 @@ describe("PendingStore", () => {
     now = 1001;
     expect(() => store.take(b.token)).toThrow("만료");
   });
+
+  it("clear 뒤에는 이전 토큰을 쓸 수 없다", () => {
+    const store = new PendingStore<string>(60_000);
+    const { token } = store.put("plan");
+    store.clear();
+    expect(() => store.take(token)).toThrow(/알 수 없거나/);
+  });
 });

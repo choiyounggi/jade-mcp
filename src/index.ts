@@ -1,10 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { JadeClient } from "./client.js";
-import { loadConfig, readKeychainPassword } from "./config.js";
+import { createRequire } from "node:module";
+import { LoginError, type JadeClient } from "./client.js";
+import { keychainItemState, loadConfig, readConfigIfAny, readKeychainPassword } from "./config.js";
 import { z } from "zod";
 import { fetchMainInfo, toRecentApplications, toTodayStatus, toVacationBalance } from "./features.js";
 import { PendingStore } from "./pending.js";
+import { saveAccount } from "./account.js";
+import { formatDoctor, runDoctor } from "./doctor.js";
+import { startOnboarding } from "./onboarding.js";
+import { createRuntime, NeedsOnboardingError } from "./runtime.js";
+import { canRetryPassword } from "./setup.js";
 import { commitPunch, preparePunch, type PunchPlan } from "./punch.js";
 import { commitCondolence, prepareCondolence, type CondolencePlan } from "./condolence.js";
 import { commitSchedule, fetchCalendar, prepareSchedule, type SchedulePlan } from "./schedule.js";
@@ -22,27 +28,80 @@ import {
 } from "./attend-cancel.js";
 import { commitRemoteWorkRevert, prepareRemoteWorkRevert, type RemoteRevertPlan } from "./remote-change.js";
 
-const config = await loadConfig();
-const client = new JadeClient(config, () => readKeychainPassword(config.keychainService, config.userId));
+const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 
-const server = new McpServer({ name: "jade", version: "0.1.0" });
+const runtime = createRuntime({
+  loadConfig: () => loadConfig(),
+  readPassword: (config) => readKeychainPassword(config.keychainService, config.userId),
+  passwordState: (config) => keychainItemState(config.keychainService, config.userId),
+  runDoctor: () => runDoctor(),
+  startOnboarding: () =>
+    startOnboarding({ runDoctor: () => runDoctor(), saveAccount: (input) => saveAccount(input), prefill: () => readConfigIfAny(), onSaved: () => {
+        runtime.reset();
+        // 이전 계정으로 만든 미리보기 토큰이 새 계정 세션으로 commit 되지 않게 한다.
+        for (const store of [punches, vacations, remoteWorks, condolences, schedules, removals, clockRequests, overtimes, overtimeCancels, attendanceCancels, remoteReverts]) store.clear();
+      } }),
+});
+// 계정이 없어도 서버는 떠 있어야 온보딩을 안내할 수 있다 — 클라이언트는 도구가 처음 불릴 때 safely 가 채운다.
+// 도구 핸들러는 모두 safely 콜백 안에서 이 바인딩을 읽는다.
+let client!: JadeClient;
+
+const server = new McpServer({ name: "jade", version });
 
 function text(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };
 }
 
+function failure(message: string) {
+  return { isError: true, content: [{ type: "text" as const, text: message }] };
+}
+
 async function safely<T>(fn: () => Promise<T>) {
   try {
+    client = await runtime.getClient();
     return text(await fn());
   } catch (e) {
+    if (e instanceof NeedsOnboardingError) return failure(await runtime.onboardingMessage(e.message));
+    if (e instanceof LoginError && canRetryPassword(e)) {
+      return failure(`${e.message}\n비밀번호가 바뀌었으면 jade_onboarding 으로 설정 페이지를 열어 다시 저장한다.`);
+    }
     // fetch 는 원인을 cause 에만 담는다 (예: 인증서 검증 실패) — 메시지만으로는 진단할 수 없다.
     const cause = (e as { cause?: { code?: string } }).cause?.code;
     const message = cause ? `${(e as Error).message} (${cause})` : (e as Error).message;
-    return { isError: true, content: [{ type: "text" as const, text: message }] };
+    return failure(message);
   }
 }
 
 const readOnly = { readOnlyHint: true, openWorldHint: true } as const;
+
+server.registerTool(
+  "jade_doctor",
+  {
+    title: "설치 상태 점검",
+    description:
+      "jade-mcp 가 동작할 환경인지 점검한다 — macOS, 보안 패치된 Node, 회사망 인증서(시스템 CA) 사용, Keychain 도구, JADE 접속, 계정 설정. " +
+      "JADE 에 로그인하지 않는다. 도구가 접속·인증서 오류로 실패하거나 사용자가 설치 문제를 물을 때 부른다.",
+    inputSchema: {},
+    annotations: readOnly,
+  },
+  async () => {
+    const report = await runDoctor();
+    return { content: [{ type: "text" as const, text: `${formatDoctor(report)}\n\n${JSON.stringify(report, null, 2)}` }] };
+  },
+);
+
+server.registerTool(
+  "jade_onboarding",
+  {
+    title: "계정 설정 페이지 열기",
+    description:
+      "JADE 계정(회사코드·아이디·비밀번호)을 입력·변경하는 로컬 설정 페이지를 브라우저로 열고 주소를 돌려준다. 계정이 없으면 다른 jade 도구도 이 페이지를 연다. " +
+      "비밀번호가 바뀌었거나 다른 계정으로 바꿀 때 쓴다. 비밀번호는 절대 대화로 받지 말고 이 페이지에만 입력하게 안내한다. 입력값은 로그인으로 확인한 뒤 Keychain 에 저장된다.",
+    inputSchema: {},
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  async () => ({ content: [{ type: "text" as const, text: await runtime.onboardingMessage("사용자가 계정 입력·변경을 요청") }] }),
+);
 
 server.registerTool(
   "jade_today",

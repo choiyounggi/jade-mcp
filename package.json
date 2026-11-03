@@ -1,9 +1,31 @@
 {
   "name": "jade-mcp",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "description": "JADE eHR 를 Claude Code 같은 MCP 클라이언트에서 쓰게 해 주는 로컬 MCP 서버 (macOS)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/choiyounggi/jade-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "jade",
+    "ehr",
+    "macos"
+  ],
+  "bin": {
+    "jade-mcp": "bin/jade-mcp.cjs"
+  },
+  "files": [
+    "bin/jade-mcp.cjs",
+    "bin/node-min.cjs",
+    "dist",
+    "README.md",
+    "LICENSE",
+    "npm-shrinkwrap.json"
+  ],
   "type": "module",
   "engines": {
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
@@ -12,7 +34,9 @@
     "start": "bin/jade-mcp",
     "setup": "bin/jade-mcp-setup",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
