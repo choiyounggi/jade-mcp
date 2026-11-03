@@ -2,3 +2,4 @@ node_modules/
 *.log
 .env
 dist/
+release-notes.md

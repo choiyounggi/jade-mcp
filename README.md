@@ -162,7 +162,14 @@ npm run build       # dist/ 빌드 (npm 패키지에 들어가는 것)
 
 레포에서 바로 쓰려면 `bin/jade-mcp-setup`(터미널 setup) 또는 `claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"` 로 등록합니다. 이 실행기는 빌드 없이 `src/` 를 tsx 로 실행합니다.
 
-배포: `package.json` 버전과 README 빠른 시작의 고정 버전을 함께 올린 뒤 `npm publish --access public` — `prepublishOnly` 가 타입체크·테스트·빌드를 통과해야 올라갑니다. 의존성은 `npm-shrinkwrap.json` 으로 고정해 함께 배포합니다.
+배포는 자동입니다. main 에 푸시하면 CI(`.github/workflows/ci.yml`)가 macOS 에서 Node 22·24·26 으로 타입검사·테스트·빌드한 뒤 릴리스합니다.
+
+1. 마지막 `v*` 태그 이후 커밋 메시지(Conventional Commits)로 버전을 정합니다. `feat!:`·`BREAKING CHANGE:` → major, `feat:` → minor, 그 밖의 커밋 → patch. `docs:`·`chore:`·`ci:`·`test:`·`style:` 과 Git 의 머지 커밋만 있으면 릴리스하지 않습니다.
+2. `package.json`·`npm-shrinkwrap.json` 버전과 README 빠른 시작의 `jade-mcp@x.y.z` 고정 버전을 함께 올려 커밋하고, `vX.Y.Z` 태그와 GitHub Release 를 만듭니다.
+3. npm 에 배포합니다(`prepublishOnly` 가 타입검사·테스트·빌드를 다시 통과해야 올라갑니다). 토큰 없이 npm trusted publishing(GitHub Actions OIDC)으로 인증하므로 npm 패키지 설정에 이 저장소의 `ci.yml` 이 신뢰할 게시자로 등록돼 있어야 합니다(`npm trust github jade-mcp --file ci.yml --repo choiyounggi/jade-mcp --allow-publish`).
+4. 중간에 실패하면 그 job 을 다시 실행하세요. 이미 있는 태그·Release·npm 버전은 건너뛰고 빠진 단계만 실행합니다.
+
+의존성은 `npm-shrinkwrap.json` 으로 고정해 함께 배포합니다. 릴리스 스크립트 테스트: `node --test scripts/release.check.mjs`.
 
 구조:
 

@@ -1,0 +1,122 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # check-latest fetches each line's newest patch; the launcher needs 22.23.4 / 24.22.1 / 26.12.1 or later.
+        node: ["22", "24", "26"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          check-latest: true
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node --test scripts/release.check.mjs
+
+  # Cuts a release for every push to main that changes something installable: bumps package.json,
+  # npm-shrinkwrap.json and the README's `jade-mcp@x.y.z` install pin from the conventional commits
+  # since the last tag, tags it, publishes a GitHub release and the npm package. Commits pushed here
+  # with GITHUB_TOKEN do not trigger another run.
+  release:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # The package is darwin-only and `npm publish` runs prepublishOnly (typecheck, tests, build).
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      # npm trusted publishing: the job proves its identity with an OIDC token, no NPM_TOKEN secret.
+      id-token: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          check-latest: true
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      # Each part (tag, GitHub release, npm) is checked on its own, so re-running a release that
+      # failed half-way finishes the missing parts instead of reporting success with npm missing.
+      - name: Plan
+        id: plan
+        run: |
+          plan="$(node scripts/release.mjs plan)"
+          echo "$plan"
+          release="$(node -p "JSON.parse(process.argv[1]).release" "$plan")"
+          version="$(node -p "JSON.parse(process.argv[1]).version" "$plan")"
+          tagged=false; github=false; npm_has=false
+          if [ "$release" = "true" ]; then
+            git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null && tagged=true
+            gh release view "v$version" >/dev/null 2>&1 && github=true
+            npm view "jade-mcp@$version" version >/dev/null 2>&1 && npm_has=true
+            echo "v$version: tag=$tagged github-release=$github npm=$npm_has"
+            if [ "$tagged" = true ] && [ "$github" = true ] && [ "$npm_has" = true ]; then
+              echo "v$version is fully released; nothing to do"
+              release=false
+            fi
+          fi
+          {
+            echo "release=$release"
+            echo "version=$version"
+            echo "tagged=$tagged"
+            echo "github=$github"
+            echo "npm=$npm_has"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Tag
+        if: steps.plan.outputs.release == 'true' && steps.plan.outputs.tagged != 'true'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node scripts/release.mjs set-version "$VERSION"
+          if ! git diff --quiet -- package.json npm-shrinkwrap.json README.md; then
+            git add package.json npm-shrinkwrap.json README.md
+            git commit -m "chore(release): v$VERSION"
+          fi
+          git tag -a "v$VERSION" -m "v$VERSION"
+          # One atomic push: main and the tag land together or not at all, so a re-run never finds one
+          # without the other.
+          git push --atomic origin HEAD:main "v$VERSION"
+
+      - name: GitHub release
+        if: steps.plan.outputs.release == 'true' && steps.plan.outputs.github != 'true'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: gh release create "v$VERSION" --title "v$VERSION" --notes-file release-notes.md --verify-tag
+
+      # Trusted publishing (npm package settings: GitHub Actions, choiyounggi/jade-mcp, ci.yml)
+      # needs npm 11.5.1 or later.
+      - name: npm publish
+        if: steps.plan.outputs.release == 'true' && steps.plan.outputs.npm != 'true'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          # On a re-run the checkout predates the release commit: set the version again.
+          node scripts/release.mjs set-version "$VERSION"
+          npm install -g npm@^11.5.1
+          npm publish --access public
+          git checkout -- package.json npm-shrinkwrap.json README.md
