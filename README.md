@@ -31,6 +31,15 @@ Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청
 | `jade_prepare_condolence` → `jade_commit_condolence` | 생일반차(오전·오후) 상신 | 쓰기 |
 | `jade_prepare_schedule` → `jade_commit_schedule` | 근태현황 > 일정등록: 한 달의 근무 가능일자 계획 시각을 일괄 변경 | 쓰기 |
 | `jade_prepare_remote_work` → `jade_commit_remote_work` | 한 달의 지정 요일 재택근무 신청서 상신 (하루에 한 장씩, 날짜별 토큰으로 한 건씩 상신) | 쓰기 |
+| `jade_prepare_remote_work_day` → `jade_commit_remote_work` | 지정한 하루의 재택근무 신청서 상신 | 쓰기 |
+| `jade_prepare_remote_work_revert` → `jade_commit_remote_work_revert` | 재택근무제로 바뀐 날을 지정한 근무유형으로 되돌리는 신청서 상신 | 쓰기 |
+| `jade_applications` | 신청 > 신청내역 목록 (기간·상태·키워드·신청서 유형, 페이지) | 조회 |
+| `jade_prepare_delete_applications` → `jade_commit_delete_applications` | 임시저장·결재 전 신청서 삭제 (회사가 회수 기능을 쓰면 회수도) | 쓰기 |
+| `jade_prepare_clock_request` → `jade_commit_clock_request` | 지난 근무일 출퇴근시각 등록 요청서 상신 (출근만·퇴근만·둘 다, 날짜별 한 장) | 쓰기 |
+| `jade_prepare_overtime` → `jade_commit_overtime` | 연장 근무 신청서 상신 (익일 넘김 지원, 휴일이면 대체/보상 유형) | 쓰기 |
+| `jade_prepare_overtime_cancel` → `jade_commit_overtime_cancel` | 연장 근무 취소 신청서 상신 | 쓰기 |
+| `jade_attendance_cancel_candidates` | 근태/근무 취소 신청서로 취소할 수 있는 원신청 목록(출장·근태 등) | 조회 |
+| `jade_prepare_attendance_cancel` → `jade_commit_attendance_cancel` | 근태/근무 취소 신청서 상신 | 쓰기 |
 
 쓰기 도구의 동작:
 
@@ -106,6 +115,12 @@ claude mcp add jade -s user -- "$(pwd)/bin/jade-mcp"
 - 「11월 월요일 재택근무 신청해 줘」 → 11월의 주(첫 평일이 든 주부터 평일이 12월로 넘어가지 않는 주까지)마다 월요일 한 장씩.
   주중에 공휴일이 있거나 휴가가 잡힌 주, 이미 재택이거나 지난 날짜는 빼고 이유를 알려 줍니다.
   사유는 「11월 2일 재택근무 신청드립니다.」처럼 날짜마다 채웁니다. 결재 대기 중인 휴가는 달력에 안 보일 수 있어 미리보기에서 확인하세요.
+- 「11/9 재택 취소하고 선택근무제(IT)로 돌려 줘」 → 그날을 그 근무유형으로 되돌리는 재택 근무 신청서 미리보기 → 승인.
+  재택 취소는 근태/근무 취소 신청서 목록에 나오지 않아서 이 방식으로 처리합니다.
+- 「어제 퇴근 못 찍었어. 19시로 등록 요청해 줘」 → 퇴근만 19:00 으로 출퇴근시각 등록 요청서 미리보기 → 승인 (시각은 기본값 없이 말한 값만 씁니다)
+- 「내일 18:30~22:00 연장근무 신청해 줘」 → 미리보기 → 승인 (시각은 기본값 없이 말한 값만 씁니다)
+- 「결재 중인 신청서 보여 줘」 → 「그중 휴가 신청서 지워 줘」 → 삭제 미리보기 → 승인.
+  삭제는 되돌릴 수 없습니다.
 
 ## 문제 해결
 

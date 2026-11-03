@@ -9,7 +9,18 @@ import { commitPunch, preparePunch, type PunchPlan } from "./punch.js";
 import { commitCondolence, prepareCondolence, type CondolencePlan } from "./condolence.js";
 import { commitSchedule, fetchCalendar, prepareSchedule, type SchedulePlan } from "./schedule.js";
 import { commitVacation, prepareVacation, type VacationPlan } from "./vacation.js";
-import { commitRemoteWork, localYmd, prepareMonthlyRemoteWork, WEEKDAYS, type RemoteWorkPlan } from "./remote.js";
+import { commitRemoteWork, localYmd, prepareMonthlyRemoteWork, prepareRemoteWork, remoteWorkReason, WEEKDAYS, type RemoteWorkPlan } from "./remote.js";
+import { commitRemoval, fetchApplications, prepareRemoval, type RemovalPlan } from "./history.js";
+import { commitClockRequest, DEFAULT_CLOCK_REASON, prepareClockRequests, type ClockRequestApproval } from "./clock-request.js";
+import { commitOvertime, prepareOvertime, type OvertimePlan } from "./overtime.js";
+import { commitOvertimeCancel, prepareOvertimeCancel, type OvertimeCancelPlan } from "./overtime-cancel.js";
+import {
+  commitAttendanceCancel,
+  listAttendanceCancelCandidates,
+  prepareAttendanceCancel,
+  type AttendanceCancelPlan,
+} from "./attend-cancel.js";
+import { commitRemoteWorkRevert, prepareRemoteWorkRevert, type RemoteRevertPlan } from "./remote-change.js";
 
 const config = await loadConfig();
 const client = new JadeClient(config, () => readKeychainPassword(config.keychainService, config.userId));
@@ -195,9 +206,9 @@ server.registerTool(
   {
     title: "재택근무 신청 상신 (한 건)",
     description:
-      "jade_prepare_remote_work 가 날짜별로 준 토큰 하나로 그날의 재택 근무 신청서 한 장을 결재선에 상신한다. 상신 직전에 화면을 새로 열어 " +
+      "jade_prepare_remote_work 또는 jade_prepare_remote_work_day 가 날짜별로 준 토큰 하나로 그날의 재택 근무 신청서 한 장을 결재선에 상신한다. 상신 직전에 화면을 새로 열어 " +
       "검사를 다시 통과하고 미리보기와 같을 때만 보낸다. 결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
-    inputSchema: { token: z.string().describe("jade_prepare_remote_work 가 그 날짜에 돌려준 토큰") },
+    inputSchema: { token: z.string().describe("jade_prepare_remote_work·jade_prepare_remote_work_day 가 그 날짜에 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   ({ token }) => safely(async () => commitRemoteWork(client, remoteWorks.take(token))),
@@ -280,6 +291,319 @@ server.registerTool(
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
   },
   ({ token }) => safely(async () => commitSchedule(client, schedules.take(token))),
+);
+
+server.registerTool(
+  "jade_applications",
+  {
+    title: "신청내역 조회",
+    description:
+      "JADE 「신청 > 신청내역」 탭의 목록(신청일시·신청서 유형·진행상태·APPL_ID·신청내용·대상자)을 조회한다. 저장하지 않는다. " +
+      "기간을 비우면 화면처럼 6개월 전부터 오늘까지다. 상태는 approving=결재중(200), rejected=반려(300), completed=최종완료(900) 이고 비우면 전체다. " +
+      "progress 는 목록 아이콘 기준(진행중·반려·완료)이다. 삭제·회수할 신청서 번호를 고를 때도 이 도구로 찾는다.",
+    inputSchema: {
+      fromYmd: z.string().regex(/^\d{8}$/).optional().describe("신청일 시작 YYYYMMDD (기본: 6개월 전)"),
+      toYmd: z.string().regex(/^\d{8}$/).optional().describe("신청일 종료 YYYYMMDD (기본: 오늘)"),
+      statuses: z.array(z.enum(["approving", "rejected", "completed"])).optional().describe("진행상태 필터. 비우면 전체"),
+      keyword: z.string().max(100).optional().describe("신청내용 검색어"),
+      applType: z.string().regex(/^\d+$/).optional().describe("신청서 유형 코드 (예: 1130=재택 근무 신청서). 비우면 전체"),
+      page: z.number().int().min(1).default(1).describe("페이지 번호"),
+      pageSize: z.union([z.literal(10), z.literal(20), z.literal(30), z.literal(50)]).default(20).describe("페이지당 건수"),
+    },
+    annotations: readOnly,
+  },
+  (q) => safely(() => fetchApplications(client, q)),
+);
+
+const removals = new PendingStore<RemovalPlan>(5 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_delete_applications",
+  {
+    title: "신청서 삭제·회수 준비",
+    description:
+      "신청서(APPL_ID) 여러 장의 삭제(delete) 또는 회수(retract)를 준비한다. 신청내역에서 다시 찾고, 신청서 화면을 열어 JADE 화면의 " +
+      "버튼 규칙(임시저장이거나 아직 결재 전인 신청서만 삭제, 회수는 회사가 회수 기능을 쓸 때 결재 전 신청서만)과 결재 진행 검사를 통과한 것만 " +
+      "대상으로 잡아 미리보기와 일회용 토큰을 돌려준다. 지우지 않는다. 막힌 신청서는 blocked 에 사유와 함께 알려 준다. " +
+      "삭제는 신청서를 지우고 되돌릴 수 없다. 회수는 결재 요청만 거둬들이고 신청서는 남는다. " +
+      "사용자가 미리보기를 확인하고 승인한 뒤에만 jade_commit_delete_applications 로 실행한다.",
+    inputSchema: {
+      applIds: z.array(z.string().regex(/^\d+$/)).min(1).max(20).describe("대상 신청서 번호(APPL_ID) 목록 — jade_applications 결과의 applId"),
+      action: z.enum(["delete", "retract"]).describe("delete=삭제(되돌릴 수 없음), retract=회수. 사용자가 말한 쪽을 고른다"),
+      fromYmd: z.string().regex(/^\d{8}$/).optional().describe("대상을 찾을 신청일 시작 YYYYMMDD (기본: 6개월 전)"),
+      toYmd: z.string().regex(/^\d{8}$/).optional().describe("대상을 찾을 신청일 종료 YYYYMMDD (기본: 오늘)"),
+    },
+    annotations: readOnly,
+  },
+  (req) =>
+    safely(async () => {
+      const plan = await prepareRemoval(client, req);
+      const { token, expiresAt } = removals.put(plan);
+      return { ...plan.preview, token, expiresAt: expiresAt.toISOString() };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_delete_applications",
+  {
+    title: "신청서 삭제·회수 실행",
+    description:
+      "jade_prepare_delete_applications 가 준 토큰으로 신청서를 한 장씩 삭제(또는 회수)한다. 장마다 신청서 화면을 새로 열어 검사를 다시 통과하고 " +
+      "상태가 미리보기와 같을 때만 보내며, 장별 결과(삭제됨·회수됨·건너뜀·실패·확인 필요)를 돌려준다. 삭제는 되돌릴 수 없으므로 " +
+      "사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_delete_applications 가 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitRemoval(client, removals.take(token))),
+);
+
+// 여러 날을 한 번에 준비하므로 미리보기를 읽고 승인할 시간을 다른 쓰기 도구보다 넉넉히 둔다.
+const clockRequests = new PendingStore<ClockRequestApproval>(15 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_clock_request",
+  {
+    title: "출퇴근시각 등록 요청 준비",
+    description:
+      "출퇴근을 못 찍은 지난 근무일(오늘 포함)의 출근·퇴근 시각을 JADE 출퇴근시각 등록 요청서로 상신 직전까지 채우고, " +
+      "화면의 서버 검증(신청 검증·근무계획 대비 검증)을 통과시킨 뒤 날짜별 미리보기와 일회용 토큰을 돌려준다. 상신하지 않는다. " +
+      "신청서는 하루에 한 장이라 날짜마다 따로 준비하고, 막힌 날은 사유와 함께 skipped 로 알려 준다. " +
+      "kind 로 출근만(in)·퇴근만(out)·둘 다(both)를 고르고, 고른 쪽의 시각은 사용자에게 받은 값만 넣는다(기본값 없음). 출퇴근 처리 단위로 시각이 바뀌면 adjusted 에 적는다. " +
+      "사용자가 미리보기를 확인하고 승인한 뒤에만 날짜마다 jade_commit_clock_request 로 상신한다.",
+    inputSchema: {
+      dates: z.array(z.string().regex(/^\d{8}$/)).min(1).max(31).describe("근무일 YYYYMMDD 목록 (오늘 이전·오늘만)"),
+      kind: z.enum(["both", "in", "out"]).describe("both=출퇴근기록, in=출근기록만, out=퇴근기록만. 사용자가 말한 쪽만 고른다"),
+      inHm: z.string().regex(/^\d{4}$/).optional().describe("출근 시각 HHMM (kind=in·both 이면 필수)"),
+      outHm: z.string().regex(/^\d{4}$/).optional().describe("퇴근 시각 HHMM (kind=out·both 이면 필수)"),
+      outNextDay: z.boolean().default(false).describe("퇴근이 다음 날 새벽이면 true"),
+      reason: z.string().min(1).default(DEFAULT_CLOCK_REASON).describe("신청 사유"),
+    },
+    annotations: readOnly,
+  },
+  ({ dates, kind, inHm, outHm, outNextDay, reason }) =>
+    safely(async () => {
+      // 기본 시각을 채우면 이미 찍힌 기록(예: 지각 출근)이 사용자가 말하지 않은 값으로 바뀌는 신청이 나간다.
+      if (kind !== "out" && !inHm) throw new Error("출근 시각(inHm)을 받아야 한다 — 사용자에게 시각을 확인한다");
+      if (kind !== "in" && !outHm) throw new Error("퇴근 시각(outHm)을 받아야 한다 — 사용자에게 시각을 확인한다");
+      const batch = await prepareClockRequests(
+        client,
+        { kind, inHm: kind === "out" ? undefined : inHm, outHm: kind === "in" ? undefined : outHm, outNextDay, reason },
+        dates,
+      );
+      return {
+        applications: batch.plans.map((p) => {
+          const { token, expiresAt } = clockRequests.put({ request: p.request, preview: p.preview });
+          return { ...p.preview, token, expiresAt: expiresAt.toISOString() };
+        }),
+        skipped: batch.skipped,
+      };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_clock_request",
+  {
+    title: "출퇴근시각 등록 요청 상신 (한 건)",
+    description:
+      "jade_prepare_clock_request 가 날짜별로 준 토큰 하나로 그날의 출퇴근시각 등록 요청서 한 장을 결재선에 상신한다. 상신 직전에 화면을 새로 열어 " +
+      "검증을 다시 통과하고 미리보기와 같을 때만 보낸다. 결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_clock_request 가 그 날짜에 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitClockRequest(client, clockRequests.take(token))),
+);
+
+const overtimes = new PendingStore<OvertimePlan>(5 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_overtime",
+  {
+    title: "연장근무 신청 준비",
+    description:
+      "JADE 연장 근무 신청서를 상신 직전까지 채우고 서버 검증을 통과시킨 뒤 미리보기와 일회용 토큰을 돌려준다. 상신하지 않는다. " +
+      "종료 시각이 시작 시각보다 이르면 익일 시각으로 본다(예: 0930 ~ 0200 → 익일 02:00). 시작·종료 시각은 사용자에게 받은 값만 넣는다(기본값 없음). " +
+      "휴일 근무면 대체/보상 유형(rewardType)이 필요하다(100=연장근무시간 누적, 300=휴일대체일 미지정). 대체휴일 지정(200)은 JADE 화면에서 해야 한다. " +
+      "연장근무는 근무 종료 전에 최종 결재가 끝나야 인정된다. 사용자가 미리보기를 확인하고 승인한 뒤에만 jade_commit_overtime 으로 상신한다.",
+    inputSchema: {
+      date: z.string().regex(/^\d{8}$/).describe("근무일 YYYYMMDD"),
+      startHm: z.string().regex(/^\d{4}$/).describe("시작 시각 HHMM (근무일 당일)"),
+      endHm: z.string().regex(/^\d{4}$/).describe("종료 시각 HHMM. 시작보다 이르면 익일"),
+      reason: z.string().min(1).describe("신청 사유"),
+      rewardType: z.enum(["100", "300"]).optional().describe("휴일 근무일 때만: 100=연장근무시간(OT) 누적, 300=휴일대체일 미지정"),
+    },
+    annotations: readOnly,
+  },
+  (req) =>
+    safely(async () => {
+      const plan = await prepareOvertime(client, req);
+      const { token, expiresAt } = overtimes.put(plan);
+      return { ...plan.preview, token, expiresAt: expiresAt.toISOString() };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_overtime",
+  {
+    title: "연장근무 신청 상신",
+    description:
+      "jade_prepare_overtime 이 준 토큰으로 연장 근무 신청서를 결재선에 상신한다. 상신 직전에 서버 검증을 한 번 더 통과해야 보낸다. " +
+      "결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_overtime 이 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitOvertime(client, overtimes.take(token))),
+);
+
+const overtimeCancels = new PendingStore<OvertimeCancelPlan>(5 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_overtime_cancel",
+  {
+    title: "연장근무 취소 신청 준비",
+    description:
+      "JADE 연장 근무 취소 신청서를 상신 직전까지 채우고 미리보기와 일회용 토큰을 돌려준다. 상신하지 않는다. " +
+      "화면의 「취소할 사전근무 선택」 목록을 근무일이 든 달로 조회해 그날의 신청 한 건을 고른다. JADE 가 취소를 막은 신청(취소신청 가능=N)은 고르지 않고, " +
+      "같은 날 취소할 수 있는 신청이 여러 건이면 startHm 으로 고르게 한다. 사용자가 미리보기를 확인하고 승인한 뒤에만 jade_commit_overtime_cancel 로 상신한다.",
+    inputSchema: {
+      date: z.string().regex(/^\d{8}$/).describe("취소할 연장근무의 근무일 YYYYMMDD"),
+      startHm: z.string().regex(/^\d{4}$/).optional().describe("같은 날 여러 건일 때 고를 근무 시작 시각 HHMM"),
+      reason: z.string().min(1).describe("취소 사유"),
+    },
+    annotations: readOnly,
+  },
+  (req) =>
+    safely(async () => {
+      const plan = await prepareOvertimeCancel(client, req);
+      const { token, expiresAt } = overtimeCancels.put(plan);
+      return { ...plan.preview, token, expiresAt: expiresAt.toISOString() };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_overtime_cancel",
+  {
+    title: "연장근무 취소 신청 상신",
+    description:
+      "jade_prepare_overtime_cancel 이 준 토큰으로 연장 근무 취소 신청서를 결재선에 상신한다. 상신 직전에 대상 목록을 다시 조회해 " +
+      "그 신청이 아직 취소 가능할 때만 보낸다. 결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_overtime_cancel 이 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitOvertimeCancel(client, overtimeCancels.take(token))),
+);
+
+server.registerTool(
+  "jade_attendance_cancel_candidates",
+  {
+    title: "근태/근무 취소 대상 조회",
+    description:
+      "JADE 근태/근무 취소 신청서의 「취소할 근태/휴가 선택」 팝업이 보여 주는 원신청 목록(출장·근태 등)을 조회한다. 저장하지 않는다. " +
+      "selectable=false 인 행은 취소 신청을 올릴 수 없고 blockedReason 에 이유가 있다. 재택근무 취소는 이 목록에 나오지 않으므로 jade_prepare_remote_work_revert 를 쓴다.",
+    inputSchema: {
+      from: z.string().regex(/^\d{8}$/).optional().describe("조회 시작일 YYYYMMDD. 없으면 이번 달 1일"),
+      to: z.string().regex(/^\d{8}$/).optional().describe("조회 종료일 YYYYMMDD. 없으면 이번 달 말일"),
+    },
+    annotations: readOnly,
+  },
+  (req) => safely(async () => listAttendanceCancelCandidates(client, req)),
+);
+
+const attendanceCancels = new PendingStore<AttendanceCancelPlan["preview"]>(5 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_attendance_cancel",
+  {
+    title: "근태/근무 취소 신청 준비",
+    description:
+      "jade_attendance_cancel_candidates 로 고른 원신청(applId)의 근태/근무 취소 신청서를 상신 직전까지 채우고, 그 원신청이 팝업에서 고를 수 있는 행인지 확인한 뒤 " +
+      "미리보기와 일회용 토큰을 돌려준다. 상신하지 않는다. 사용자가 미리보기를 확인하고 승인한 뒤에만 jade_commit_attendance_cancel 로 상신한다.",
+    inputSchema: {
+      applId: z.string().regex(/^\d+$/).describe("취소할 원신청 번호 (목록의 applId)"),
+      reason: z.string().min(1).describe("취소 사유"),
+      from: z.string().regex(/^\d{8}$/).optional().describe("원신청을 찾을 조회 시작일 YYYYMMDD. 목록 조회 때와 같게"),
+      to: z.string().regex(/^\d{8}$/).optional().describe("원신청을 찾을 조회 종료일 YYYYMMDD. 목록 조회 때와 같게"),
+    },
+    annotations: readOnly,
+  },
+  (req) =>
+    safely(async () => {
+      const plan = await prepareAttendanceCancel(client, req);
+      const { token, expiresAt } = attendanceCancels.put(plan.preview);
+      return { ...plan.preview, token, expiresAt: expiresAt.toISOString() };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_attendance_cancel",
+  {
+    title: "근태/근무 취소 신청 상신",
+    description:
+      "jade_prepare_attendance_cancel 이 준 토큰으로 근태/근무 취소 신청서를 결재선에 상신한다. 상신 직전에 화면을 새로 열어 그 원신청이 아직 취소 가능한지 다시 확인하고 " +
+      "미리보기와 같을 때만 보낸다. 결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_attendance_cancel 이 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitAttendanceCancel(client, attendanceCancels.take(token))),
+);
+
+const remoteReverts = new PendingStore<RemoteRevertPlan["preview"]>(5 * 60 * 1000);
+
+server.registerTool(
+  "jade_prepare_remote_work_revert",
+  {
+    title: "재택근무 취소 신청 준비 (한 날)",
+    description:
+      "재택근무제로 바뀐 날을 재택 근무 신청서로 사용자가 고른 근무유형으로 되돌리는 신청서를 상신 직전까지 채우고 마감 검사를 통과시킨 뒤 " +
+      "미리보기와 일회용 토큰을 돌려준다. 상신하지 않는다. 그날이 아직 재택근무제가 아니면(결재 대기 포함) 막는다. " +
+      "사유 기본값은 「M월 D일 재택근무 취소 신청드립니다.」. 사용자가 미리보기를 확인하고 승인한 뒤에만 jade_commit_remote_work_revert 로 상신한다.",
+    inputSchema: {
+      date: ymd.describe("재택을 취소할 날 YYYYMMDD"),
+      workType: z.string().min(1).describe("되돌릴 근무유형 이름 (예: 선택근무제(IT)). 원래 근무유형은 미리보기로 확인할 수 없으므로 사용자에게 받는다"),
+      reason: z.string().min(1).optional().describe("신청 사유"),
+    },
+    annotations: readOnly,
+  },
+  (req) =>
+    safely(async () => {
+      const plan = await prepareRemoteWorkRevert(client, req);
+      const { token, expiresAt } = remoteReverts.put(plan.preview);
+      return { ...plan.preview, token, expiresAt: expiresAt.toISOString() };
+    }),
+);
+
+server.registerTool(
+  "jade_commit_remote_work_revert",
+  {
+    title: "재택근무 취소 신청 상신 (한 날)",
+    description:
+      "jade_prepare_remote_work_revert 가 준 토큰으로 근무유형 되돌리기 재택 근무 신청서를 결재선에 상신한다. 상신 직전에 화면을 새로 열어 검사를 다시 통과하고 " +
+      "미리보기와 같을 때만 보낸다. 결재자에게 바로 전달되므로 사용자가 미리보기를 보고 명시적으로 승인했을 때만 호출한다.",
+    inputSchema: { token: z.string().describe("jade_prepare_remote_work_revert 가 돌려준 토큰") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  ({ token }) => safely(async () => commitRemoteWorkRevert(client, remoteReverts.take(token))),
+);
+
+server.registerTool(
+  "jade_prepare_remote_work_day",
+  {
+    title: "재택근무 신청 준비 (지정 날짜)",
+    description:
+      "지정한 하루의 JADE 재택 근무 신청서를 상신 직전까지 채우고 마감 검사를 통과시킨 뒤 미리보기와 일회용 토큰을 돌려준다. 상신하지 않는다. " +
+      "결재 대기 중인 같은 날 신청은 달력에 안 보여 두 번 상신될 수 있으므로, 먼저 jade_applications(statuses=[approving])로 그날 재택 신청이 없는지 확인한다. " +
+      "사유 기본값은 「M월 D일 재택근무 신청드립니다.」. 사용자가 미리보기를 확인하고 승인한 뒤에만 jade_commit_remote_work 로 상신한다.",
+    inputSchema: {
+      date: ymd.describe("재택 날짜 YYYYMMDD"),
+      reason: z.string().min(1).optional().describe("신청 사유"),
+    },
+    annotations: readOnly,
+  },
+  ({ date, reason }) =>
+    safely(async () => {
+      const plan = await prepareRemoteWork(client, { date, reason: reason ?? remoteWorkReason(date) });
+      const { token, expiresAt } = remoteWorks.put(plan.preview);
+      return { ...plan.preview, token, expiresAt: expiresAt.toISOString() };
+    }),
 );
 
 await server.connect(new StdioServerTransport());

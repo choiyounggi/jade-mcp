@@ -1,0 +1,1327 @@
+<!-- 실제 출퇴근시각 등록 요청서(tm_day_080_m01) 화면을 줄인 것. 화면 JS 는 원문 그대로이고 토큰·개인정보만 가짜 값이다. -->
+<html><head>
+<script type='text/javascript' >
+if ( window.Page == undefined )
+{
+  Page =
+  {
+    C_CD: "1000000",
+    LANG: "ko",
+    SKIN_PATH: "/common",
+    SKIN_SUB_PATH: "V03/skinF",
+    MAIN_TYPE: "V03",
+    ORI_MAIN_TYPE: "V03",
+    CUR_MAIN_TYPE: "V03", 
+    ADMIN_MAIN_TYPE: "V03",
+    ADMIN_DASH_TYPE: "",
+    SHEET_SKIN: "V03skinF",
+    PROFILE_ID: "ESS",
+    MODULE_ID: "essAppl",
+    AUTH_ADMIN_YN: "N",
+    MENU_ID: "essappl103",
+    PGM_ID: "sy_appl_200_m03",
+    SQL_ID: "",
+    PRS_ID: "",
+    EMP_SCH_AUTH_CD: "10",
+    //버튼로그 관련 시작
+    BUTTON_LOG_YN: "Y",
+    PGM_BTN_LOG_YN: "N",
+    //버튼로그 관련 끝
+    //주민번호마스킹 시작
+    MASKING_USE_YN : "",
+    PER_NO_LIMIT_YN : "",
+    RSN_POP_USE_YN : "",
+    //주민번호마스킹 끝
+    //개인정보마스킹 관련 시작
+    ENC_MASKING_USE_YN : "",
+    ENC_PER_NO_LIMIT_YN : "",
+    ENC_RSN_POP_USE_YN : "",
+    ENC_T : "",
+    //개인정보마스킹 관련 끝
+    //엑셀파일 암호적용 관련 시작
+    EXCEL_FILE_PWD_YN : "",  
+    //엑셀파일 암호적용 관련 끝
+    //버튼실행확인문구입력여부
+    CONF_INPUT_USE_YN: "",
+    //버튼실행확인문구입력여부
+    NTNL_CD: "KR",
+    EMP_TYPE: "2010",
+    GEN_YN: "",
+    ENC_VAL: "tok-01xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    PGM_URL: "/sys/sy_appl/sy_appl_200_m03.jsp",
+    POP_URL: "/tam4/tm_day/tm_day_080_m01.jsp",
+    HELP_PGM_ID : "",
+    SKIN_TYPE: "skinF",
+    CLIPBOARD_YN: ""
+  }
+}
+var S_PGM_OPEN_TIME = "1000";
+var S_ENC_OTP_KEY   = "tok-02xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+var S_CSRF_SALT     = "salt-clock";
+var HUNEL_DEV_TOOL_USE_YN = "N";
+
+var S_ENC_MASKING_USE_YN = (window.Page && Page.ENC_MASKING_USE_YN) || "N";
+var S_ENC_PER_NO_LIMIT_YN = (window.Page && Page.ENC_PER_NO_LIMIT_YN) || "N";
+var S_ENC_RSN_POP_USE_YN = (window.Page && Page.ENC_RSN_POP_USE_YN) || "N";
+var S_ENC_T = (window.Page && Page.ENC_T) || "";
+</script>
+<script>
+var isPopup = _isPopup;
+var _plan_chk_yn = ""; //계획체크여부가 'Y' 인데 계획이 없으면 신청불가 , 계획체크여부가 'N' 인데 계획이 없으면 로직을 안타도록 하기 위해서 해당 파라미터에 pass 라고 변수 담아준다.
+if(isPopup)
+{
+  
+    sizeDialog(1300, 650);
+  
+}
+var isDisabled = "";
+
+
+
+
+var ApplyOtpVal = {
+    Sys_appl_common       : "tok-03xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , Sys_file_common       : "tok-04xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , getInitInfo           : "tok-05xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , getCourse             : "tok-06xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , searchFileCnt         : "tok-07xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , getApprLineDetail     : "tok-08xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , getApprLine           : "tok-09xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , delete01              : "tok-10xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , apply01               : "tok-11xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , save01                : "tok-12xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , appr01                : "tok-13xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , noappr01              : "tok-14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , apprCheck01           : "tok-15xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , apprSync01            : "tok-16xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , searchComment         : "tok-17xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , saveComment01         : "tok-18xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , changePage01          : "tok-19xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , searchAppl01          : "tok-20xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , searchRetiree         : "tok-21xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  , retract               : "tok-22xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+};
+
+
+var applLabelVal =
+{
+   appl                     : "신청"
+  , appr                    : "결재"
+  , approval                : "승인"
+  , hr_appr                 : "HR결재"
+  , ref                     : "참조"
+  , ref_com                 : "참조(최종완료시)"
+  , fix_ref                 : "고정참조"
+  , temp_save               : "임시저장"
+  , appl_info               : "신청안내"
+  , plus_view               : "더보기"
+  , jade_refer_view         : "참조자 보기"
+  , close                   : "닫기"
+  , attach_file             : "파일첨부"
+  , comment                 : "의견"
+  , appr_comnt              : "결재의견"
+  , noappr_rsn              : "반려사유"
+  , print                   : "인쇄"
+  , delete                  : "삭제"
+  , screen_print            : "화면인쇄"
+  , appr_line               : "결재선"
+  , jade_stand_by           : "대기"
+  , pgr_ing                 : "진행중"
+  , ret                     : "반려"
+  , complete                : "완료"
+  , set                        : "설정"         
+  , set_path                : "경로지정"
+  , set_temp                : "임의지정"
+  , add_appr                : "결재자 추가"
+  , jsp_label_00044         : "동기화"
+  , edit                    : "수정"
+  , insert                  : "추가"
+  , register                : "등록"
+  , retract                : "회수"
+};
+
+function LoadPage()
+{
+  var cbTAM010 = "출근기록□10■퇴근기록□20■출퇴근기록□30";
+  var cbTM102 = "당일□2■익일□3";
+
+  setCombo(cbTAM010, "S_IN_OUT_CLASS", null, "S");
+  setCombo(cbTM102, "S_STA_YMD_CLASS", null, "S");
+  setCombo(cbTM102, "S_END_YMD_CLASS", null, "S");
+  inputSetValueAuto("F_WORK_YMD", "20261103");
+  inputSetValueAuto("S_STA_YMD_CLASS", "2");
+  inputSetValueAuto("S_END_YMD_CLASS", "2");
+
+  
+	  $('#S_STA_YMD_CLASS2').hide();
+	  $('#F_STA_HM2').hide();
+	  $('#S_END_YMD_CLASS2').hide();
+	  $('#F_END_HM2').hide();
+	  
+	  $('#S_STA_YMD_CLASS_NM').hide();
+    $('#V_STA_HM').hide();
+    $('#S_END_YMD_CLASS_NM').hide();
+    $('#V_END_HM').hide();
+	  
+  
+  $('#fromto').hide();
+
+  Apply.init();
+  doAction2("tok-23xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+  setYmd();
+
+  if( Apply.ApplStatus != Apply.Complete )
+  {
+    doAction2('tok-24xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+  }
+  
+}
+
+
+function doSearch(applStatus, isReapply)
+{
+  var isPrintYn = ($("#S_APPL_ID").val() != null && $("#S_APPL_MODE").val() == "ADMIN" && applStatus == Apply.Complete) || ($("#S_APPL_ID").val() != null && $("#S_RECV_MTH_CD").val() == "04" && applStatus == Apply.Complete);
+
+  if( $("#S_APPL_MODE").val() == "ADMDEL" )
+  {
+    displayElement("applPrint", false); 
+  }
+  else
+  {
+    displayElement("applPrint", isPrintYn);
+  }
+  isDisabled = (Apply.ApplMode == "APPL" && applStatus > Apply.TempSave || (Apply.ApplMode != "APPL"));
+  if ( isReapply )
+  {
+    $("#S_APPL_ID").val(""); 
+  }
+
+  var shtml = "";
+  var nDefNm = 3;
+  var workCnt = 0;
+  var nIptIndex = 0;
+  var ADJ_IN_HM;
+  var ADJ_OUT_HM;
+  var ADJ_IN_YMD;
+  var ADJ_OUT_YMD;
+
+  ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-25xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", {S_APPL_ID:$("#S_APPL_ID").val()}, function(xs)
+  {
+    if (xs.RowCount() != 0)
+    {
+      xs = deEscapeXs(xs, "RSN")||xs;
+      ADJ_IN_HM = xs.GetCellValue(0, "ADJ_STA_HM");
+      ADJ_OUT_HM = xs.GetCellValue(0, "ADJ_END_HM");
+      ADJ_IN_YMD = xs.GetCellValue(0, "ADJ_STA_YMD");
+      ADJ_OUT_YMD = xs.GetCellValue(0, "ADJ_END_YMD");
+
+      inputSetValueAuto('S_IN_OUT_CLASS',     xs.GetCellValue(0, "IN_OUT_CLASS"));
+      change_class();
+
+      inputSetValueAuto('S_TARGET_EMP_ID', xs.GetCellValue(0, "EMP_ID"));
+      inputSetValueAuto('S_TARGET_EMP_NM', xs.GetCellValue(0, "EMP_NM"));
+      inputSetValueAuto('F_WORK_YMD',      xs.GetCellValue(0, "YMD"));
+      inputSetValueAuto('S_STA_YMD_CLASS', xs.GetCellValue(0, "STA_YMD_CLASS"));
+      inputSetValueAuto('F_STA_HM',        xs.GetCellValue(0, "STA_HM"));
+      inputSetValueAuto('S_END_YMD_CLASS', xs.GetCellValue(0, "END_YMD_CLASS"));
+      inputSetValueAuto('F_END_HM',        xs.GetCellValue(0, "END_HM"));
+      inputSetValueAuto('S_RSN',           xs.GetCellValue(0, "RSN"));
+      inputSetValueAuto('S_WORK_TYPE_CD',  xs.GetCellValue(0, "WORK_TYPE_CD"));
+      inputSetValueAuto('S_WORK_TYPE',     xs.GetCellValue(0, "WORK_TYPE"));
+
+      if(xs.GetCellValue(0, "IN_OUT_CLASS") == "10") // 출근기록
+      {
+        change_date('F_STA_HM');
+      }
+      else if(xs.GetCellValue(0, "IN_OUT_CLASS") == "20") // 퇴근기록
+      {
+        change_date('F_END_HM');
+      }
+      else // 출퇴근기록
+      {
+        change_date('F_STA_HM');
+        change_date('F_END_HM');
+      }
+
+      
+      if ( isDisabled )
+      {
+        enableInput("S_IN_OUT_CLASS",  false);
+        enableInput("S_TARGET_EMP_ID", false);
+        enableInput("S_TARGET_EMP_NM", false);
+        enableInput("F_WORK_YMD",      false);
+        enableInput("S_STA_YMD_CLASS", false);
+        enableInput("F_STA_HM",        false);
+        enableInput("S_END_YMD_CLASS", false);
+        enableInput("F_END_HM",        false);
+        enableInput("S_RSN",           false);
+        
+    	
+    	  enableInput("S_TARGET_EMP_NM", false);
+        enableInput("icsch_sy181_S_TARGET", false);
+    	  
+    	  //entry 속성을 갖는 입력창에서 값이 없으면, '-' 처리 및 textarea일 경우 rows도 '1'처리
+        $("[entry]").each(function(idx, elem){
+          if($("#"+this.id).val())
+          {
+            if($(this).prop("tagName") == "TEXTAREA")
+            {
+              Apply.resizeHeight(this);
+            }
+          }
+        });
+  		
+      }
+
+      doAction2("tok-26xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    }
+    else
+    {
+      alert(ajaxMsg("MSG_ALERT_0509", "ko"));
+      return;
+    }
+  });
+}
+
+function doSaveBefore()
+{
+  if ( !doValidation() )
+  {
+    return false;
+  }
+
+  return true;
+}
+
+function doApplyBefore()
+{
+  if ( !doValidation() )
+  {
+    return false;
+  }
+
+  return true;
+}
+
+//결재전 체크
+function doApprBefore()
+{
+  if(!doAction2('tok-27xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'))
+  {
+    return false;
+  }
+  inputAutoUnformat("f1");
+  return true;
+}
+
+function doValidation()
+{
+  var return_result;
+  inputAutoUnformat("f1");
+
+  setYmd();
+
+  if( ! checkForm("f1") )
+  {
+    return false;
+  }
+
+  if( !$("#S_WORK_YMD").val() )
+  {
+    alert(ajaxMsg("jade_ent_work_day", "ko"));
+    return false;
+  }
+
+  if( $("#S_WORK_YMD").val() > "20261103" )
+  {
+    if("ko" == "ko") alert(" 출퇴근시각변경신청은 현재일(" + formatValue("20261103", "dfDateYmd") + ")을 포함한 과거일자 근무일만 신청가능합니다. ");
+    else if("ko" == "ko") alert("You can apply only for past working days, including the current date (" + formatValue("20261103", "dfDateYmd") + ")");
+    else alert("You can apply only for past working days, including the current date (" + formatValue("20261103", "dfDateYmd") + ")");
+    return false;
+  }
+
+  if( !$("#S_STA_YMD_CLASS").val() || !$("#S_END_YMD_CLASS").val() )
+  {
+    alert(ajaxMsg("jade_ent_day_class", "ko"));
+    return false;
+  }
+
+  if( $('#S_IN_OUT_CLASS').val () == 30 )
+  {
+    if( $("#S_STA_YMD").val()+""+$("#S_STA_HM").val() > $("#S_END_YMD").val()+""+$("#S_END_HM").val() )
+    {
+      alert(ajaxMsg("jade_time_validate_alert", "ko"));
+      return false;
+    }
+  }
+  if( !doAction2("tok-27xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") )
+  {
+    return false;
+  }
+
+  // -a , +a 체크
+  // 출근 or 퇴근 일때만
+  //if( _plan_chk_yn != "pass" ) //계획체크여부가 'N' 인데 계획이 없으면 해당로직 안타도록 처리
+  //{
+    if( !doAction2("tok-28xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") )
+    {
+      return false;
+    }
+  //}
+
+  return true;
+}
+
+function doAction2(sAction, p1)
+{
+  inputAutoUnformat("f1");
+  $("#S_DSMETHOD").val(sAction);
+
+  switch(sAction)
+  {
+    case "tok-29xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx":
+    {
+      $("#S_BEF_TARGET_EMP_ID").val( $("#S_TARGET_EMP_ID").val() );
+      Apply.changeTRG();
+    }
+    break;
+    
+    case "tok-23xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx":
+    {
+      if( isDisabled ) return;
+
+      $("#S_WORK_CLASS").val("");
+      if( $("#S_TARGET_EMP_ID").val() == "" || $("#S_WORK_YMD").val() == "" || $("#S_WORK_YMD").val().length != 8 )
+      {
+        return;
+      }
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-23xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", serializeForm("f1"), function(xs)
+      {
+        $("#S_WORK_TYPE").val(xs.GetEtcData("WORK_TYPE"));
+        $("#S_WORK_TYPE_CD").val(xs.GetEtcData("WORK_TYPE_CD"));
+        _plan_chk_yn = "";
+
+        //환경변수 계획체크여부가 'Y" 일떄만 체크하도록 함
+        //null 인경우는 근무조없는경우이므로 신청불가하도록 처리
+        if( !xs.GetEtcData("PLAN_CHK_YN") )
+        {
+          alert(ajaxMsg("jade_shift_not_exist", "ko"));
+        }
+
+        if( xs.GetEtcData("PLAN_CHK_YN") == "Y" )
+        {
+          if( xs.GetEtcData("P_IN_HM") == "" || xs.GetEtcData("P_OUT_HM") == "" )
+          {
+            alert(ajaxMsg("jade_plan_time_not_exist", "ko"));
+            inputSetValueAuto("F_WORK_YMD", "");
+            
+              $("#divAttendTxt").val("");
+            
+          }
+        }
+        else
+        {
+          if( xs.GetEtcData("P_IN_HM") == "" || xs.GetEtcData("P_OUT_HM") == "" )
+          {
+            _plan_chk_yn = "pass";
+          }
+        }
+      });
+
+      doAction2("tok-26xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"); 
+    }
+    break;
+    
+    case "tok-26xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx":
+    {
+      var attendHtml = "";
+
+      $("#S_WORK_CLASS").val("");
+      if( $("#S_TARGET_EMP_ID").val() == "" || $("#S_WORK_YMD").val() == "" || $("#S_WORK_YMD").val().length != 8 )
+      {
+        return;
+      }
+
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-26xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", serializeForm("f1"), function(xs)
+      {
+        if( xs.GetEtcData("ATTEND_TXT") ) attendHtml += xs.GetEtcData("ATTEND_TXT").trim().replace(/^,+/, "").replace(/,$/, "");
+      });
+
+      
+        $("#divAttendTxt").val(attendHtml.trim());
+      
+      
+    }
+    break;
+    
+    /*
+    case "tok-27xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" :
+    {
+      var result;
+
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), $("#S_DSMETHOD").val(), serializeForm("f1"), function(xs)
+      {
+        if( xs.RowCount() > 0 )
+        {
+          if( xs.GetCellValue(0, "CHK_MSG") == "OK" )
+          {
+            result = true;
+          }
+          else
+          {
+            alert(xs.GetCellValue(0, "CHK_MSG"));
+            result = false;
+          }
+        }
+      });
+
+      return result;
+    }
+    break;
+    */
+    case "tok-27xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" :
+    {
+      var result = true;
+      var alert_msg = "";
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), $("#S_DSMETHOD").val(), serializeForm("f1"), function(xs)
+      {
+        S_ERRORCODE = xs.GetEtcData("ERRORCODE");
+        S_ERRORMESG = xs.GetEtcData("ERRORMESG");
+         
+        if (S_ERRORCODE != '0')
+        {
+           alert_msg += "▶" + S_ERRORMESG + "\n\n"; 
+           result = false;
+        }
+        else
+        {
+          result  = true;
+        }
+      });
+      
+      if(!result)
+      {
+        alert(alert_msg);
+      }
+      return result;
+    }
+    
+    case "tok-28xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" :
+    {
+      var result = true;
+
+      // -a , +a 체크
+      // 출근 or 퇴근 일때만
+      if( $('#S_IN_OUT_CLASS').val() == '10' || $('#S_IN_OUT_CLASS').val() == '20' )
+      {
+        ajaxSyncRequestXS($("#S_DSCLASS").val(), $("#S_DSMETHOD").val(), serializeForm("f1"), function(xs)
+        {
+            if( xs.GetEtcData("PLAN_CHK_CONFIRM") != "OK" )
+            {
+            	alert(xs.GetEtcData("PLAN_CHK_CONFIRM"));
+            	result = false;
+            }
+         
+            if( xs.GetEtcData("CONFIRM") != "OK" )
+            {
+            	alert(xs.GetEtcData("CONFIRM"));
+            	result = false;
+            }
+        });
+      }
+      else //출퇴근일떄는 출근으로 한번 퇴근으로 한번
+    	{
+    	  $('#S_IN_OUT_CLASS').val("10");
+    	  if( !doAction2("tok-28xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") )
+    	  {
+    		  result = false;
+    	  }
+    	  else
+    	  {
+        	  $('#S_IN_OUT_CLASS').val("20");
+        	  if( !doAction2("tok-28xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") )
+        	  {
+        		  result = false;
+        	  }     		  
+    	  }
+   	  
+    	  $('#S_IN_OUT_CLASS').val("30");
+    	}
+
+      return result;
+    }
+    break;
+    
+    case "tok-24xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx":
+    {
+      $("#graphAreaDiv").empty();
+
+      ajaxSyncRequestXS("tok-30xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "tok-31xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", {S_STA_YMD : $("#S_WORK_YMD").val() , S_END_YMD : $("#S_WORK_YMD").val(), S_EMP_ID : $("#S_TARGET_EMP_ID").val(), S_LANG_TYPE : "ko"}, function(xs)
+      {
+        $("#graphAreaDiv").html(xs.GetEtcData("GRAPH_HTML"));
+      });
+    }
+    break;
+  }
+}
+
+
+function change_date(dateTEXT)
+{
+  var STA_HM;     // 신청출근시간
+  var END_HM;     // 신청퇴근시간
+  var SWITCH_YN;  // 근로유형의 출퇴근기록방식이 '근로자가 직접 출퇴근기록 입력(계획시간과 비교하여인정) 인 경우 "Y", 아닌경우 "N"
+  var P_IN_HM;    // 계획출근시간
+  var P_OUT_HM;   // 계획퇴근시간
+  var ADJ_IN_HM;  // 조정출근시간 (계획시간과 신청시간비교)
+  var ADJ_OUT_HM; // 조정퇴근시ㅍ (계획시간과 신청시간비교)
+  var P_OUT_YMDHM;
+  var P_IN_HM;
+  var P_OUT_HM;
+  var C_IN_YMD;
+  var C_IN_HM;
+  var C_OUT_YMD;
+  var C_OUT_HM;
+
+  switch(dateTEXT)
+  {
+    case "F_WORK_YMD":
+    {
+      doAction2("tok-23xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+      doAction2('tok-24xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+      //입력한 시간 초기화
+      $('#C_HM').text("");
+      $('#S_STA_YMD').val("");
+      $('#S_END_YMD').val("");
+      $('#S_ADJ_STA_YMD').val("");
+      $('#S_ADJ_END_YMD').val("");
+      $('#S_ADJ_STA_HM').val("");
+      $('#S_ADJ_END_HM').val("");
+      $('#F_STA_HM').val("");
+      $('#F_END_HM').val("");
+      $('#S_STA_YMD_CLASS').val("2");
+      $('#S_END_YMD_CLASS').val("2");
+    }
+    break;
+    case "F_STA_HM":
+    {
+      inputAutoUnformat("f1");
+      
+      // 출퇴근게획 처리방법 체크
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-32xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", {S_EMP_ID: $("#S_TARGET_EMP_ID").val(), S_WORK_YMD: $('#S_WORK_YMD').val()}, function(xs)
+      {
+    	$('#S_ATTEND_MANAGE').val( xs.GetCellValue(0, "ATTEND_MANAGE"));
+    	$('#S_MAIN_WORK_TYPE').val( xs.GetCellValue(0, "MAIN_WORK_TYPE_O") );
+    	  
+        if(xs.GetCellValue(0, "ATTEND_MANAGE") == "0040" || xs.GetCellValue(0, "ATTEND_MANAGE") == "0050" || xs.GetCellValue(0, "ATTEND_MANAGE") == "0060" || xs.GetCellValue(0, "ATTEND_MANAGE") == "0070" )
+        {
+          SWITCH_YN = "Y";
+          $('#S_SWITCH_YN').val("Y");
+        }
+        else
+        {
+          SWITCH_YN = "N";
+          $('#S_SWITCH_YN').val("N");
+        }
+      });
+      
+      // 출퇴근 처리 방법 가져오기
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-33xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", {S_WORK_TYPE: $("#S_MAIN_WORK_TYPE").val()}, function(xs)
+      {
+        $('#S_IN_CALC_ROUND').val( xs.GetCellValue(0, "IN_CALC_ROUND") );
+        $('#S_IN_CALC_UNIT').val( xs.GetCellValue(0, "IN_CALC_UNIT") );
+      });
+      
+      if( $('#S_IN_CALC_ROUND').val() != '' && $('#S_IN_CALC_UNIT').val() != '' )
+      {
+        // 값 올림, 내림 처리
+        var hm = $('#F_STA_HM').val();
+        var calc_hm = getInOutCalcUnit(hm, $('#S_IN_CALC_ROUND').val(), $('#S_IN_CALC_UNIT').val(), 'STA')
+        console.log(calc_hm);
+        if ( calc_hm !== 0 )
+        {
+          $('#F_STA_HM').val( calc_hm );
+          showToast(ajaxMsg("jade_msg_inout_calc", "ko"), 'base');
+        }
+      }
+      
+      // 최소출근계획시간 가져오기
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-34xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", {S_EMP_ID: $("#S_TARGET_EMP_ID").val(), S_WORK_YMD: $('#S_WORK_YMD').val()}, function(xs)
+      {
+    	  if (xs.RowCount() != 0)
+   	      {
+   	  		$('#S_MIN_STA_HM').val( xs.GetCellValue(0, "MIN_STA_HM")); 
+   	      }
+		  if ($('#F_STA_HM').val() < $('#S_MIN_STA_HM').val())
+		  { 
+			alert($('#S_MIN_STA_HM').val().substr(0,2) + ":" + $('#S_MIN_STA_HM').val().substr(2,2)+ "이후 출근시각을 입력하여 주십시요.");
+ 			$('#F_STA_HM').val("");
+ 			return;
+ 		  }  
+       });
+ 
+
+      $('#S_SWITCH_YN').val(SWITCH_YN);
+
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-35xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      {
+        S_EMP_ID: $("#S_TARGET_EMP_ID").val(), S_WORK_YMD: $('#S_WORK_YMD').val(),
+        S_ATTEND_MANAGE: $('#S_ATTEND_MANAGE').val(),
+        S_A_IN_HM: $('#S_STA_HM').val(),
+        S_A_OUT_HM: $('#S_END_HM').val(),
+        S_STA_YMD_CLASS: $('#S_STA_YMD_CLASS').val(),
+        S_END_YMD_CLASS: $('#S_END_YMD_CLASS').val()
+      },
+      function(xs)
+      {
+        if(xs.RowCount() > 0)
+        {
+          ADJ_IN_HM = xs.GetCellValue(0, "ADJ_IN_HM");  // 조정 출근 연월일시분초
+          ADJ_OUT_HM = xs.GetCellValue(0, "ADJ_OUT_HM");  // 조정 퇴근 연월일시분초
+          P_IN_YMDHM = xs.GetCellValue(0, "P_IN_YMDHM"); // 계획 출근 연월일시분초
+          P_OUT_YMDHM = xs.GetCellValue(0, "P_OUT_YMDHM");  // 게획 퇴근 연월일시분초
+          APPL_IN_YMDHM = xs.GetCellValue(0, "APPL_IN_YMDHM"); // 신청 출근 연월일시분초
+          APPL_OUT_YMDHM = xs.GetCellValue(0, "APPL_OUT_YMDHM"); // 신청 퇴근 연월일시분초
+          C_IN_YMD = xs.GetCellValue(0, "C_IN_YMD");
+          C_IN_HM = xs.GetCellValue(0, "C_IN_HM");
+          C_OUT_YMD = xs.GetCellValue(0, "C_OUT_YMD");
+          C_OUT_HM = xs.GetCellValue(0, "C_OUT_HM");
+          P_IN_HM = xs.GetCellValue(0, "P_IN_HM");
+          P_OUT_HM = xs.GetCellValue(0, "P_OUT_HM");
+
+          $('#S_ADJ_STA_YMD').val(ADJ_IN_HM.substr(0,8)); // 조정시작일
+          $('#S_ADJ_END_YMD').val(ADJ_OUT_HM.substr(0,8));  // 조정종료일
+          $('#S_ADJ_STA_HM').val(ADJ_IN_HM.substr(8,4));  // 조정 시작시각
+          $('#S_ADJ_END_HM').val(ADJ_OUT_HM.substr(8,4)); // 조정 종료시각
+
+          // if 1. 출근일때, 2.퇴근일때, 3. 출퇴근일때
+          if( $('#S_IN_OUT_CLASS').val() == '30' )
+          {
+            $('#S_ADJ_STA_YMD').val(ADJ_IN_HM.substr(0,8)); // 조정시작일
+            $('#S_ADJ_END_YMD').val(ADJ_OUT_HM.substr(0,8));  // 조정종료일
+            $('#S_ADJ_STA_HM').val(ADJ_IN_HM.substr(8,4));  // 조정 시작시각
+            $('#S_ADJ_END_HM').val(ADJ_OUT_HM.substr(8,4)); // 조정 종료시각
+          }
+          else if( $('#S_IN_OUT_CLASS').val() == '10' )
+          {
+            $('#S_ADJ_STA_YMD').val(ADJ_IN_HM.substr(0,8)); // 조정시작일
+            $('#S_ADJ_END_YMD').val(C_OUT_YMD);
+            $('#S_ADJ_STA_HM').val(ADJ_IN_HM.substr(8,4));  // 조정 시작시각
+            $('#S_ADJ_END_HM').val(C_OUT_HM);
+          }
+          else if( $('#S_IN_OUT_CLASS').val() == '20' )
+          {
+            $('#S_ADJ_STA_YMD').val(C_IN_YMD);
+            $('#S_ADJ_END_YMD').val(ADJ_OUT_HM.substr(0,8));  // 조정종료일
+            $('#S_ADJ_STA_HM').val(C_IN_HM);
+            $('#S_ADJ_END_HM').val(ADJ_OUT_HM.substr(8,4)); // 조정 종료시각
+          }
+        }
+      });
+
+      if( P_IN_HM == "" && P_OUT_HM == "" ) // 계획시간이 없으면 무조건 확정시간
+      {
+        SWITCH_YN = "N";
+        $('#S_SWITCH_YN').val("N");
+      }
+
+      STA_HM = $('#S_STA_HM').val();
+      END_HM = $('#S_END_HM').val();
+
+      if( SWITCH_YN == "Y" )
+      {
+        // 출근기록만 입력
+        if( STA_HM.length == '4' && $('#F_END_HM').css("display") == "none" )
+        {
+          $('#C_HM').text("( " + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + " )" );
+        	
+            if(isDisabled)
+            {
+              $("#C_HM_V").text("( " + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + " )" );
+            }
+          
+        }
+        else
+        {
+          $('#C_HM').text("");
+        	
+            if(isDisabled)
+            {
+              $("#C_HM_V").text("");
+            }
+          
+        }
+
+        // 출퇴근기록 이지만 출근시간만 입력상태
+        if( STA_HM.length == '4' && $('#F_END_HM').css("display") != "none" && END_HM.length != '4' )
+        {
+          $('#C_HM').text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + "~)");
+          
+	          if(isDisabled)
+	          {
+	            $("#C_HM_V").text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + "~ )");
+	          }
+	        
+        }
+        // 출퇴근기록이면서 출퇴근시간 모두 입력
+        if( STA_HM.length == '4' && $('#F_END_HM').css("display") != "none" && END_HM.length == '4' )
+        {
+          $('#C_HM').text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + "~"+ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+          
+	          if(isDisabled)
+	          {
+	            $("#C_HM_V").text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + "~"+ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+	          }
+	        
+        }
+      }
+    }
+    break;
+    case "F_END_HM":
+    {
+      inputAutoUnformat("f1");
+
+      // 출퇴근게획 처리방법 체크
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-32xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      {
+        S_EMP_ID: $("#S_TARGET_EMP_ID").val()
+       ,S_WORK_YMD: $('#S_WORK_YMD').val()
+      },
+      function(xs)
+      {
+    	$('#S_ATTEND_MANAGE').val( xs.GetCellValue(0, "ATTEND_MANAGE"));
+    	
+    	$("#S_MAIN_WORK_TYPE").val( xs.GetCellValue(0, "MAIN_WORK_TYPE_O") );
+    	
+    	if(xs.GetCellValue(0, "ATTEND_MANAGE") == "0040" || xs.GetCellValue(0, "ATTEND_MANAGE") == "0050" || xs.GetCellValue(0, "ATTEND_MANAGE") == "0060" || xs.GetCellValue(0, "ATTEND_MANAGE") == "0070" )
+        {
+          SWITCH_YN = "Y";
+          $('#S_SWITCH_YN').val("Y");
+        }
+        else
+        {
+          SWITCH_YN = "N";
+          $('#S_SWITCH_YN').val("N");
+        }
+      });
+      
+      // 출퇴근 처리 방법 가져오기
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-33xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", {S_WORK_TYPE: $("#S_MAIN_WORK_TYPE").val()}, function(xs)
+      {
+        $('#S_OUT_CALC_ROUND').val( xs.GetCellValue(0, "OUT_CALC_ROUND") );
+        $('#S_OUT_CALC_UNIT').val( xs.GetCellValue(0, "OUT_CALC_UNIT") );
+      });
+      
+      if( $('#S_OUT_CALC_ROUND').val() != '' && $('#S_OUT_CALC_UNIT').val() != '' )
+      {
+        // 값 올림, 내림 처리
+        var hm = $('#F_END_HM').val();
+        var calc_hm = getInOutCalcUnit(hm, $('#S_OUT_CALC_ROUND').val(), $('#S_OUT_CALC_UNIT').val(), 'END')
+        if ( calc_hm !== 0 )
+        {
+          $('#F_END_HM').val( calc_hm );
+          showToast(ajaxMsg("jade_msg_inout_calc", "ko"), 'base');
+          
+        }
+      }
+
+      // 계획시간과 비교
+      ajaxSyncRequestXS($("#S_DSCLASS").val(), "tok-35xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      {
+        S_EMP_ID: $("#S_TARGET_EMP_ID").val()
+       ,S_ATTEND_MANAGE: $('#S_ATTEND_MANAGE').val()        
+       ,S_WORK_YMD: $('#S_WORK_YMD').val()
+       ,S_A_IN_HM: $('#S_STA_HM').val()
+       ,S_A_OUT_HM: $('#S_END_HM').val()
+       ,S_STA_YMD_CLASS: $('#S_STA_YMD_CLASS').val()
+       ,S_END_YMD_CLASS: $('#S_END_YMD_CLASS').val()
+      },
+      function(xs)
+      {
+        if(xs.RowCount() > 0)
+        {
+          ADJ_IN_HM = xs.GetCellValue(0, "ADJ_IN_HM");  // 조정 출근 연월일시분초
+          ADJ_OUT_HM = xs.GetCellValue(0, "ADJ_OUT_HM");  // 조정 퇴근 연월일시분초
+          P_IN_YMDHM = xs.GetCellValue(0, "P_IN_YMDHM"); // 계획 출근 연월일시분초
+          P_OUT_YMDHM = xs.GetCellValue(0, "P_OUT_YMDHM");  // 게획 퇴근 연월일시분초
+          APPL_IN_YMDHM = xs.GetCellValue(0, "APPL_IN_YMDHM"); // 신청 출근 연월일시분초
+          APPL_OUT_YMDHM = xs.GetCellValue(0, "APPL_OUT_YMDHM"); // 신청 퇴근 연월일시분초
+          C_IN_YMD = xs.GetCellValue(0, "C_IN_YMD");
+          C_IN_HM = xs.GetCellValue(0, "C_IN_HM");
+          C_OUT_YMD = xs.GetCellValue(0, "C_OUT_YMD");
+          C_OUT_HM = xs.GetCellValue(0, "C_OUT_HM");
+          P_IN_HM = xs.GetCellValue(0, "P_IN_HM");
+          P_OUT_HM = xs.GetCellValue(0, "P_OUT_HM");
+        
+          // if 1. 출근일때, 2.퇴근일때, 3. 출퇴근일때
+          if( $('#S_IN_OUT_CLASS').val() == '30' )
+          {
+            $('#S_ADJ_STA_YMD').val(ADJ_IN_HM.substr(0,8)); // 조정시작일
+            $('#S_ADJ_END_YMD').val(ADJ_OUT_HM.substr(0,8));  // 조정종료일
+            $('#S_ADJ_STA_HM').val(ADJ_IN_HM.substr(8,4));  // 조정 시작시각
+            $('#S_ADJ_END_HM').val(ADJ_OUT_HM.substr(8,4)); // 조정 종료시각
+          }
+          else if( $('#S_IN_OUT_CLASS').val() == '10' )
+          {
+            $('#S_ADJ_STA_YMD').val(ADJ_IN_HM.substr(0,8)); // 조정시작일
+            $('#S_ADJ_END_YMD').val(C_OUT_YMD);
+            $('#S_ADJ_STA_HM').val(ADJ_IN_HM.substr(8,4));  // 조정 시작시각
+            $('#S_ADJ_END_HM').val(C_OUT_HM);
+          }
+          else if( $('#S_IN_OUT_CLASS').val() == '20' )
+          {
+            $('#S_ADJ_STA_YMD').val(C_IN_YMD);
+            $('#S_ADJ_END_YMD').val(ADJ_OUT_HM.substr(0,8));  // 조정종료일
+            $('#S_ADJ_STA_HM').val(C_IN_HM);
+            $('#S_ADJ_END_HM').val(ADJ_OUT_HM.substr(8,4)); // 조정 종료시각
+          }
+        }
+      });
+
+      if( P_IN_HM == "" && P_OUT_HM == "" ) // 계획시간이 없으면 무조건 확정시간
+      {
+        SWITCH_YN = "N";
+        $('#S_SWITCH_YN').val("N");
+      }
+
+      STA_HM = $('#S_STA_HM').val();
+      END_HM = $('#S_END_HM').val();
+
+      if( SWITCH_YN == "Y" )
+      {
+        // 퇴근기록만 입력
+        if( END_HM.length == '4' && $('#F_STA_HM').css("display") == "none" )
+        {
+          $('#C_HM').text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+          
+	          if(isDisabled)
+	          {
+	            $("#C_HM_V").text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+	          }
+	        
+        }
+        else
+        {
+          $('#C_HM').text("");
+          
+	          if(isDisabled)
+	          {
+	            $("#C_HM_V").text("");
+	          }
+	        
+        }
+
+        // 출퇴근기록 이지만 퇴근시간만 입력상태
+        if( END_HM.length == '4' && $('#F_STA_HM').css("display") != "none" && STA_HM.length != '4' )
+        {
+          $('#C_HM').text("(" + ajaxLabel("jade_actual_time", "ko") + " : ~" + ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+          
+	          if(isDisabled)
+	          {
+	            $("#C_HM_V").text("(" + ajaxLabel("jade_actual_time", "ko") + " : ~" + ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+	          }
+	        
+        }
+        // 출퇴근기록이면서 출퇴근시간 모두 입력
+        if( END_HM.length == '4' && $('#F_STA_HM').css("display") != "none" && STA_HM.length == '4' )
+        {
+          $('#C_HM').text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + "~" + ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+          
+	          if(isDisabled)
+	          {
+	            $("#C_HM_V").text("(" + ajaxLabel("jade_actual_time", "ko") + " : " + ADJ_IN_HM.substr(8,2) + ":" + ADJ_IN_HM.substr(10,2) + "~" + ADJ_OUT_HM.substr(8,2) + ":" + ADJ_OUT_HM.substr(10,2) + ")");
+	          }
+	        
+        }
+      }
+    }
+    break;
+  }
+}
+
+
+function setYmd()
+{
+  var STA_YMD, END_YMD;
+
+  
+  if( '2' == $("#S_STA_YMD_CLASS").val() )
+  {
+    STA_YMD = $("#S_WORK_YMD").val();
+  }
+  else if( '3' == $("#S_STA_YMD_CLASS").val() )
+  {
+    STA_YMD = addYmd($("#S_WORK_YMD").val(), "D", 1);
+  }
+  else
+  {
+    STA_YMD = addYmd($("#S_WORK_YMD").val(), "D", -1);
+  }
+
+  if( '2' == $("#S_END_YMD_CLASS").val() )
+  {
+    END_YMD = $("#S_WORK_YMD").val();
+  }
+  else if( '3' == $("#S_END_YMD_CLASS").val() )
+  {
+    END_YMD = addYmd($("#S_WORK_YMD").val(), "D", 1);
+  }
+  else
+  {
+    END_YMD = addYmd($("#S_WORK_YMD").val(), "D", -1);
+  }
+
+  $("#S_STA_YMD").val(STA_YMD);
+  $("#S_END_YMD").val(END_YMD);
+
+  return;
+}
+
+function getInOutCalcUnit(hm, round, unit, inout)
+{	
+  var h = hm.substr(0, 2);
+  var m = hm.substr(3, 2);
+  
+  if(h < 0 || h >= 24 || m <= 0 || m >= 60)
+    return 0;
+  
+  switch (round)
+  {
+    case '올림':
+    {
+	  if( m % unit != 0 )
+	    m = Math.floor( m / unit + 1) * unit;
+	  else
+		return 0;
+    }
+    break;
+    case '버림':
+    {
+      if( m % unit != 0 )
+    	m = Math.floor( m / unit ) * unit;
+      else
+    	return 0;
+    }
+    break;
+  }
+  
+  if(m >= 60)
+	hm = lpad(( Number(hm.substr(0, 2)) + Number(1) ) + '00', 4, 0);
+  else
+	hm = rpad(hm.substr(0, 2) + m, 4, 0);
+  
+  h = hm.substr(0,2);
+  if(h >= 24)
+  {
+	if(inout == 'STA')
+	{
+	  setSelect("S_STA_YMD_CLASS", 3);
+	}
+	else
+	{
+	  setSelect("S_END_YMD_CLASS", 3);
+	}
+	
+	hm = '0000';
+  }
+  
+  return hm;
+}
+
+function lpad(val, padLength, padString){
+    while(val.length < padLength){
+        val = padString + val;
+    }
+    return val;
+}
+
+function rpad(val, padLength, padString){
+    while(val.length < padLength){
+        val += padString;
+    }
+    return val;
+}
+
+function change_class()
+{
+  $('#C_HM').text("");
+  $('#S_STA_YMD').val("");
+  $('#S_END_YMD').val("");
+  $('#S_ADJ_STA_YMD').val("");
+  $('#S_ADJ_END_YMD').val("");
+  $('#S_ADJ_STA_HM').val("");
+  $('#S_ADJ_END_HM').val("");
+  $('#F_STA_HM').val("");
+  $('#F_END_HM').val("");
+
+  if( $('#S_IN_OUT_CLASS').val()== '' )
+  {
+	  
+	    $('#S_STA_YMD_CLASS2').hide();
+	    $('#F_STA_HM2').hide();
+	    $('#S_END_YMD_CLASS2').hide();
+	    $('#F_END_HM2').hide();
+	    
+	    $('#S_STA_YMD_CLASS_NM').hide();
+	    $('#V_STA_HM').hide();
+	    $('#S_END_YMD_CLASS_NM').hide();
+	    $('#V_END_HM').hide();
+	  
+	  $('#fromto').hide();
+	  $('#fromtoV').hide();
+  }
+  
+  // 출근기록
+  if( $('#S_IN_OUT_CLASS').val()== '10' )
+  {
+    
+      $('#S_STA_YMD_CLASS2').show();
+    	$('#F_STA_HM2').show();
+    	$('#S_END_YMD_CLASS2').hide();
+    	$('#F_END_HM2').hide();
+  	
+    
+  	if(!isDisabled)
+    {
+	    $('#fromto').hide();
+	    $('#S_STA_YMD_CLASS').attr('key_field', 'Y');
+	    $('#F_STA_HM').attr('key_field', 'Y');
+	    $('#S_END_YMD_CLASS').attr('key_field', 'N');
+	    $('#F_END_HM').attr('key_field', 'N');
+	    $('#S_STA_YMD_CLASS').val('2');
+    }
+  	else
+  	{
+  		$('#fromtoV').hide();
+  	}
+  }
+
+  // 퇴근기록
+  if( $('#S_IN_OUT_CLASS').val() == '20' )
+  {
+    
+      $('#S_STA_YMD_CLASS2').hide();
+    	$('#F_STA_HM2').hide();
+    	$('#S_END_YMD_CLASS2').show();
+   	 	$('#F_END_HM2').show();
+	  
+
+    if(!isDisabled)
+    {
+	    $('#fromto').hide();
+	    $('#S_STA_YMD_CLASS').attr('key_field', 'N');
+	    $('#F_STA_HM').attr('key_field', 'N');
+	    $('#S_END_YMD_CLASS').attr('key_field', 'Y');
+	    $('#F_END_HM').attr('key_field', 'Y');
+	    $('#S_END_YMD_CLASS').val('2');
+    }
+    else
+    {
+      $('#fromtoV').hide();
+    }
+  }
+
+  // 출퇴근기록
+  if( $('#S_IN_OUT_CLASS').val() == '30' )
+  {
+    
+	    $('#S_STA_YMD_CLASS2').show();
+    	$('#F_STA_HM2').show();
+    	$('#S_END_YMD_CLASS2').show();
+    	$('#F_END_HM2').show();
+	  
+    
+    if(!isDisabled)
+    {
+	    $('#fromto').show();
+	    $('#S_STA_YMD_CLASS').attr('key_field', 'Y');
+	    $('#F_STA_HM').attr('key_field', 'Y');
+	    $('#S_END_YMD_CLASS').attr('key_field', 'Y');
+	    $('#F_END_HM').attr('key_field', 'Y');
+	    $('#S_STA_YMD_CLASS').val('2');
+	    $('#S_END_YMD_CLASS').val('2');
+    }
+    else
+    {
+      $('#fromtoV').show();
+    }
+  }
+  return;
+}
+
+</script>
+</script>
+</head><body>
+<form id="f1" name="f1" onsubmit="return false;">
+  <input type="hidden" id="S_DSCLASS" name="S_DSCLASS" value="tok-36xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+  <input type="hidden" id="S_DSMETHOD" name="S_DSMETHOD" />
+  <input type="hidden" id="S_BEF_TARGET_EMP_ID" name="S_BEF_TARGET_EMP_ID" />
+  <input type="hidden" id="S_STA_YMD" name="S_STA_YMD" />
+  <input type="hidden" id="S_END_YMD" name="S_END_YMD" />
+  <input type="hidden" id="S_ADJ_STA_YMD" name="S_ADJ_STA_YMD" />
+  <input type="hidden" id="S_ADJ_END_YMD" name="S_ADJ_END_YMD" />
+  <input type="hidden" id="S_ADJ_STA_HM" name="S_ADJ_STA_HM" />
+  <input type="hidden" id="S_ADJ_END_HM" name="S_ADJ_END_HM" />
+  <input type="hidden" id="S_SWITCH_YN" name="S_SWITCH_YN" />
+  <input type="hidden" id="S_SKIN_PATH" name="S_SKIN_PATH" value="/common" />
+  <input type="hidden" id="S_SKIN_SUB_PATH" name="S_SKIN_SUB_PATH" value="V03/skinF" />
+  <input type="hidden" id="S_ATTEND_MANAGE" name="S_ATTEND_MANAGE" />
+  <input type="hidden" id="S_MIN_STA_HM" name="S_MIN_STA_HM" />  
+  <input type="hidden" id="S_MAIN_WORK_TYPE" name="S_MAIN_WORK_TYPE" />
+  <input type="hidden" id="S_IN_CALC_ROUND" name="S_IN_CALC_ROUND" />
+  <input type="hidden" id="S_IN_CALC_UNIT" name="S_IN_CALC_UNIT" />
+  <input type="hidden" id="S_OUT_CALC_ROUND" name="S_OUT_CALC_ROUND" />
+  <input type="hidden" id="S_OUT_CALC_UNIT" name="S_OUT_CALC_UNIT" />
+
+  
+
+  <!-- // 신청서 공통 parameter -->
+  <input type="hidden" id="S_APPL_MODE" name="S_APPL_MODE" value="APPL" />
+  <input type="hidden" id="S_APPL_TYPE" name="S_APPL_TYPE" value="1110" /> <!-- 신청서유형 -->
+  <input type="hidden" id="S_APPL_ID" name="S_APPL_ID" value="" />
+  <input type="hidden" id="S_APPL_TYPE_NM" name="S_APPL_TYPE_NM" value="출퇴근시각 등록 요청서" />
+  <input type="hidden" id="S_EMP_ID" name="S_EMP_ID" value="" /> <!--  결재자, 승인자 사번 -->
+  <input type="hidden" id="S_EMP_NM" name="S_EMP_NM" value="" /> <!--  결재자, 승인자 성명 -->
+  <input type="hidden" id="S_LOGIN_EMP_ID" name="S_LOGIN_EMP_ID" value="10000001" />
+  <input type="hidden" id="S_LOGIN_EMP_NM" name="S_LOGIN_EMP_NM" value="홍길동" />
+  <input type="hidden" id="S_PRT_CNT" name="S_PRT_CNT" />
+  <input type="hidden" id="S_INF_USE_YN" name="S_INF_USE_YN" />
+  <input type="hidden" id="S_BTN_CHG_YN" name="S_BTN_CHG_YN" />
+  <input type="hidden" id="S_PROC_FLAG" name="S_PROC_FLAG" /> <!-- 10 : 내부결재 / 20 : 외부결재 / 30 : 웹서비스 -->
+  <input type="hidden" id="S_PROC_TYPE" name="S_PROC_TYPE" /> <!-- 10 : Popup -->
+  <input type="hidden" id="S_AUTO_CHG_NO" name="S_AUTO_CHG_NO" />
+  <input type="hidden" id="S_AUTO_COMPLE_NO" name="S_AUTO_COMPLE_NO" />
+  <input type="hidden" id="S_APPL_FILE_LIMIT_SIZE" name="S_APPL_FILE_LIMIT_SIZE" value="10" />
+  <input type="hidden" id="S_DEFAULT_LINE_USE_ONLY_YN" name="S_DEFAULT_LINE_USE_ONLY_YN" />
+  <input type="hidden" id="S_ONLY_APPL_TYPE_APPR_YN" name="S_ONLY_APPL_TYPE_APPR_YN" />
+  <input type="hidden" id="S_APPR_LINE_EDIT_YN" name="S_APPR_LINE_EDIT_YN" />
+  <input type="hidden" id="S_APPL_INSERT_REFER_YN" name="S_APPL_INSERT_REFER_YN" />
+  <input type="hidden" id="S_APPR_INSERT_REFER_YN" name="S_APPR_INSERT_REFER_YN" />
+  <input type="hidden" id="S_APPR_DELETE_REFER_YN" name="S_APPR_DELETE_REFER_YN" />
+  <input type="hidden" id="S_LIST_SRC" name="S_LIST_SRC" value="/sys/sy_appl/sy_appl_200_f01.jsp" />
+  <input type="hidden" id="S_APPL_VERSION" name="S_APPL_VERSION" value="APPL_V03" />
+  <!-- 신청서 공통 parameter // -->
+          <ul class="appWriteForm" id="writeModeForm">
+            <li>
+              <div class="appFormArea">
+                <span class="point_req">대상자</span>
+  		          <p class="item_area">
+	                
+
+
+
+
+
+
+<!--기존 header.jsp 에서는 DOC TYPE이 명시되어 있어 include 파일들에서는 적용되지 않게 하려 제외함-->
+
+
+
+
+
+
+<span id="empnm_sy181_S_TARGET" >
+  
+  
+ 
+    
+      <input type=text id="S_TARGET_EMP_NM" name="S_TARGET_EMP_NM" class="search" size="10" maxlength="20"
+        key_field=Y
+        korname="성명" readonly style="ime-mode: active; " value="홍길동" tabCheck="true"/>
+    
+    
+    
+
+ </span>
+</span>
+
+<span nowrap id="empid_sy181_S_TARGET" style="display:none;">
+    
+      <span class="point_opt" id="S_TARGET_EMP_SPAN">사번</span>
+    <input type="text" id="S_TARGET_EMP_ID" name="S_TARGET_EMP_ID" class="intxt_bg alignC" readonly size="8"
+      korname="사번" key_field="Y" value="" tabCheck="true"/>
+  
+</span>
+
+<span nowrap id="etcinfo_sy181_S_TARGET" style="display:none;">
+  
+  <input type="text" id="S_TARGET_etcinfo" name="S_TARGET_etcinfo" class="intxt_bg" readonly size="20" tabCheck="true"/>
+
+  <input type="hidden" id="Q_EMP_ETC_DATA_S_TARGET" name="Q_EMP_ETC_DATA_S_TARGET" value="" />
+</span>
+
+
+	              </p>
+                
+              </div>
+              <div class="appFormArea">
+		     	      <span class="point_req">근무일</span>
+		     	      <p class="item_area">
+	                <input type="text" class="format" name="F_WORK_YMD" id="F_WORK_YMD"  korname="근무일" data_format="dfDateYmd" onblur="change_date('F_WORK_YMD')" key_field="Y" />
+	              </p>
+              </div>
+            </li>
+            <li>
+              <div class="appFormArea">
+	           	  <span class="point_req">근무유형</span>
+	              <p>
+	                <input type="hidden" id="S_WORK_TYPE_CD" name="S_WORK_TYPE_CD" />
+	                <input type="text" id="S_WORK_TYPE" name="S_WORK_TYPE" readonly="readonly" />
+	              </p>
+              </div>
+            </li>
+            <li>
+              <div class="appFormArea">
+	           	  <span class="point_none">근태사항</span>
+	           	  <p>
+	              	<input type="text" id="divAttendTxt" readonly="readonly" />
+	              </p>
+              </div>
+            </li>
+		    <li class="formSev formCmt">
+	          <div class="appFormArea formW">
+		          <span class="point_req">출/퇴근시각</span>
+		          <p>
+             	  	<select id="S_IN_OUT_CLASS" name="S_IN_OUT_CLASS" onchange="change_class();" keyfield="Y"></select>
+	              </p>
+	          </div>
+	          <div class="appFormArea" id="S_STA_YMD_CLASS2">
+	            <select id="S_STA_YMD_CLASS" name="S_STA_YMD_CLASS" onchange="change_date('F_STA_HM')" korname="출근 (당일/익일)" keyfield="'Y"></select>           	
+	          </div>
+              <div class="appFormArea" id="F_STA_HM2">
+                <input type="text" class="format" name="F_STA_HM" id="F_STA_HM" korname="출근시각" data_format="dfTimeHm" onblur="change_date('F_STA_HM')" key_field="Y" />
+              </div>
+              <div class="appSpace" id="fromto"><span class="txtPeriod">&#126;</span></div>
+              <div class="appFormArea" id="S_END_YMD_CLASS2">
+                <select id="S_END_YMD_CLASS" name="S_END_YMD_CLASS" onchange="change_date('F_END_HM')" korname="퇴근일 (당일/익일)" keyfield="Y"></select>             	
+              </div>
+              <div class="appFormArea" id="F_END_HM2">
+         	    <input type="text" class="format" name="F_END_HM" id="F_END_HM" korname="퇴근시각" data_format="dfTimeHm" onblur="change_date('F_END_HM')" key_field="Y" />      	         
+	          </div>
+	          <div id="toast" class="toast-wrap" style="display:none;">
+      			<div class="toast"></div>
+  			  </div>
+	        </li>
+	        <li>
+              <div class="appFormArea">
+                <p id="C_HM" class="appTxt"></p>
+	          </div>
+	        </li>
+            <li>
+              <div class="appFormArea hiddenZone" id="appl_reason">
+	              <span class="point_none" id="appl_re_point">변경사유</span>
+	              <p>
+	              	<textarea id="S_RSN" name="S_RSN" korname="변경사유" entry  key_field="N"  maxbl="500" rows="5"></textarea>
+	              </p>
+              </div>
+            </li>
+            <li>
+		    			<div class="appFormArea hiddenZone" id="appl_details">
+			  				<span class="point_none" id="appl_re_details">신청내용</span>
+			  				<p>
+			    				<textarea id="S_APPL_DTL_TXT" name="S_APPL_DTL_TXT" entry key_field="N" readonly korname="신청내용" maxbl="500" rows="3"></textarea>
+			  				</p>
+		    			</div>
+		  			</li>
+          </ul>          
+</form></body></html>
