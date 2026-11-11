@@ -27,7 +27,7 @@ import {
   type AttendanceCancelPlan,
 } from "./attend-cancel.js";
 import { commitRemoteWorkRevert, prepareRemoteWorkRevert, type RemoteRevertPlan } from "./remote-change.js";
-import { triggerGcalSync } from "./gcal/env.js";
+import { refreshLauncher, triggerGcalSync } from "./gcal/env.js";
 
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 
@@ -48,6 +48,9 @@ const runtime = createRuntime({
 let client!: JadeClient;
 
 const server = new McpServer({ name: "jade", version });
+
+// 정각 동기화 스크립트의 고정 버전을 이 서버 버전으로 맞춘다. 실패해도 서버 기동을 막지 않는다.
+void refreshLauncher().catch(() => {});
 
 function text(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };

@@ -124,7 +124,10 @@ Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청
 3. `jade-mcp gcal sync --dry-run` 으로 바꿀 목록을 확인한 뒤 `jade-mcp gcal sync --force`
 4. `jade-mcp gcal install` — 매 정각 자동 실행 등록 (`uninstall` 로 해제, `status` 로 상태 확인)
 
-로그: `~/Library/Logs/jade-mcp/gcal-sync.log`. 실패하면 macOS 알림이 뜹니다. 레포에서 실행하면 `jade-mcp` 대신 `bin/jade-mcp` 를 씁니다.
+로그: `~/Library/Logs/jade-mcp/gcal-sync.log`. 실패하면 macOS 알림이 뜹니다.
+
+명령은 Claude Code 에 등록한 것과 같은 버전으로 실행합니다 — npm 으로 쓰면 `npx -y jade-mcp@<버전> gcal …`, 레포에서 쓰면 `bin/jade-mcp gcal …`.
+npm 으로 등록하면 정각 실행은 `~/.config/jade-mcp/gcal-sync.sh` 가 그 버전을 npx 로 띄웁니다. Claude Code 등록 버전을 올리면 MCP 서버가 뜰 때 이 스크립트의 버전도 따라 올라갑니다.
 
 ## 문제 해결
 

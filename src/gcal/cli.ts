@@ -17,7 +17,8 @@ import {
   GCAL_RERUN_PATH,
   GCAL_SETTINGS_PATH,
   launcherCommand,
-  PACKAGE_ROOT,
+  repoLauncherPath,
+  writeLauncher,
 } from "./env.js";
 import { authorize, createCalendarApi, getAccessToken, hasRefreshToken, loadOAuthClient, readRefreshToken } from "./google.js";
 import { agentState, installAgent, PLIST_PATH, uninstallAgent } from "./launchd.js";
@@ -221,7 +222,9 @@ export async function runGcalCommand(argv: string[]): Promise<void> {
         await sync(flags);
         break;
       case "install":
-        await installAgent({ programArguments: launcherCommand(["gcal", "sync"]), workingDirectory: PACKAGE_ROOT, logDir: GCAL_LOG_DIR });
+        if (!repoLauncherPath()) await writeLauncher();
+        // npx 캐시 경로는 정리되면 사라져 작업 디렉터리로 쓰면 launchd 가 실행 자체를 못 한다.
+        await installAgent({ programArguments: launcherCommand(["gcal", "sync"]), workingDirectory: GCAL_DIR, logDir: GCAL_LOG_DIR });
         console.log(`자동 동기화 등록 완료 — 평일 9~19시 매 정각 (${PLIST_PATH})`);
         break;
       case "uninstall":
