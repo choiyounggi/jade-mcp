@@ -12,7 +12,7 @@ JADE eHR(`ehr.jadehr.co.kr`)을 Claude Code 같은 MCP 클라이언트에서 쓸
 ## 빠른 시작
 
 ```sh
-claude mcp add jade -s user -- npx -y jade-mcp@0.3.0
+claude mcp add jade -s user -- npx -y jade-mcp@0.4.0
 ```
 
 Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청하세요.
