@@ -27,6 +27,7 @@ import {
   type AttendanceCancelPlan,
 } from "./attend-cancel.js";
 import { commitRemoteWorkRevert, prepareRemoteWorkRevert, type RemoteRevertPlan } from "./remote-change.js";
+import { triggerGcalSync } from "./gcal/env.js";
 
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 
@@ -70,6 +71,25 @@ async function safely<T>(fn: () => Promise<T>) {
     const message = cause ? `${(e as Error).message} (${cause})` : (e as Error).message;
     return failure(message);
   }
+}
+
+/**
+ * 구글 캘린더에 보이는 근태(휴가·재택·출장 등)를 바꾸는 상신·삭제·취소. 끝나면 캘린더 동기화를 별도 프로세스로 띄운다.
+ * 실패해도 띄운다 — 일부 건만 전송된 채 실패할 수 있고, 동기화는 JADE 현재 상태로 맞출 뿐이라 남는 부작용이 없다.
+ */
+function changesCalendar<T>(fn: () => Promise<T>) {
+  return safely(async () => {
+    try {
+      return await fn();
+    } finally {
+      // 여기서 예외가 나면 성공한 상신이 실패 응답으로 덮여 다시 상신될 수 있다.
+      try {
+        triggerGcalSync();
+      } catch {
+        // 다음 정각 동기화가 반영한다
+      }
+    }
+  });
 }
 
 const readOnly = { readOnlyHint: true, openWorldHint: true } as const;
@@ -223,7 +243,7 @@ server.registerTool(
     inputSchema: { token: z.string().describe("jade_prepare_vacation 이 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  ({ token }) => safely(async () => commitVacation(client, vacations.take(token))),
+  ({ token }) => changesCalendar(async () => commitVacation(client, vacations.take(token))),
 );
 
 // 여러 날을 한 번에 준비하므로 미리보기를 읽고 승인할 시간을 다른 쓰기 도구보다 넉넉히 둔다.
@@ -270,7 +290,7 @@ server.registerTool(
     inputSchema: { token: z.string().describe("jade_prepare_remote_work·jade_prepare_remote_work_day 가 그 날짜에 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  ({ token }) => safely(async () => commitRemoteWork(client, remoteWorks.take(token))),
+  ({ token }) => changesCalendar(async () => commitRemoteWork(client, remoteWorks.take(token))),
 );
 
 const condolences = new PendingStore<CondolencePlan>(5 * 60 * 1000);
@@ -310,7 +330,7 @@ server.registerTool(
     inputSchema: { token: z.string().describe("jade_prepare_condolence 가 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  ({ token }) => safely(async () => commitCondolence(client, condolences.take(token))),
+  ({ token }) => changesCalendar(async () => commitCondolence(client, condolences.take(token))),
 );
 
 const schedules = new PendingStore<SchedulePlan>(5 * 60 * 1000);
@@ -413,7 +433,7 @@ server.registerTool(
     inputSchema: { token: z.string().describe("jade_prepare_delete_applications 가 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  ({ token }) => safely(async () => commitRemoval(client, removals.take(token))),
+  ({ token }) => changesCalendar(async () => commitRemoval(client, removals.take(token))),
 );
 
 // 여러 날을 한 번에 준비하므로 미리보기를 읽고 승인할 시간을 다른 쓰기 도구보다 넉넉히 둔다.
@@ -602,7 +622,7 @@ server.registerTool(
     inputSchema: { token: z.string().describe("jade_prepare_attendance_cancel 이 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  ({ token }) => safely(async () => commitAttendanceCancel(client, attendanceCancels.take(token))),
+  ({ token }) => changesCalendar(async () => commitAttendanceCancel(client, attendanceCancels.take(token))),
 );
 
 const remoteReverts = new PendingStore<RemoteRevertPlan["preview"]>(5 * 60 * 1000);
@@ -640,7 +660,7 @@ server.registerTool(
     inputSchema: { token: z.string().describe("jade_prepare_remote_work_revert 가 돌려준 토큰") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  ({ token }) => safely(async () => commitRemoteWorkRevert(client, remoteReverts.take(token))),
+  ({ token }) => changesCalendar(async () => commitRemoteWorkRevert(client, remoteReverts.take(token))),
 );
 
 server.registerTool(

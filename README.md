@@ -101,6 +101,31 @@ Claude Code 를 다시 열고 「오늘 출근 시간 알려 줘」라고 요청
 - 「결재 중인 신청서 보여 줘」 → 「그중 휴가 신청서 지워 줘」 → 삭제 미리보기 → 승인.
   삭제는 되돌릴 수 없습니다.
 
+## 구글 캘린더 동기화 (선택)
+
+휴가(연차·반차·반반차·경조·기타), 재택, 근태/근무 신청서(출장·외근·교육 등)를 구글 캘린더에 맞춰 둡니다.
+
+| 언제 | 무엇을 |
+|---|---|
+| jade 도구로 휴가·재택·경조 상신, 신청 삭제·회수, 근태 취소, 재택 취소를 한 직후 | 별도 프로세스로 바로 동기화 (도구 응답은 기다리지 않습니다) |
+| 평일 9~19시 매 정각 | 웹·앱으로 한 신청까지 동기화. 정각에서 3분 넘게 늦은 실행(잠자기 중 놓친 정각)과 공휴일은 건너뜁니다 |
+
+- 범위: 오늘 ~ 다음 달 말일. 이 기능이 만든 일정(비공개 속성 `jadeSync=1`)만 추가·수정·삭제하고 직접 넣은 일정은 건드리지 않습니다.
+- 승인된 일정은 JADE 달력 기준입니다. 승인 뒤 취소하면 달력에서 사라지는 시점에 지웁니다.
+- 결재 중인 신청은 제목에 `(결재중)` 을 붙여 넣고, 승인되면 제목만 바뀝니다. 반려·삭제되면 지웁니다.
+- 시각: 신청서에 적힌 시각. 시각이 없는 경조휴가는 오전 09:30~13:30 · 오후 14:30~18:30 · 종일 09:30~18:30, 재택은 신청서 시각이 없으면 09:30~18:30.
+- 재택 날에 8시간 이상 휴가·출장 등이 있으면 재택 일정은 넣지 않습니다. 재택은 「한가함」으로 표시하고 알림은 끕니다.
+
+설정 (1회):
+
+1. 구글 OAuth 클라이언트(데스크톱 앱) JSON 을 받습니다. Google Cloud Console → Calendar API 사용 → OAuth 동의 화면 대상 **내부** → 클라이언트 유형 **데스크톱 앱**.
+   외부·테스트 상태로 두면 7일마다 다시 로그인해야 합니다.
+2. `jade-mcp gcal auth --client ~/Downloads/client_secret_….json` — 설정 폴더로 복사하고 브라우저 로그인. 토큰은 Keychain `jade-mcp-gcal` 에 저장됩니다.
+3. `jade-mcp gcal sync --dry-run` 으로 바꿀 목록을 확인한 뒤 `jade-mcp gcal sync --force`
+4. `jade-mcp gcal install` — 매 정각 자동 실행 등록 (`uninstall` 로 해제, `status` 로 상태 확인)
+
+로그: `~/Library/Logs/jade-mcp/gcal-sync.log`. 실패하면 macOS 알림이 뜹니다. 레포에서 실행하면 `jade-mcp` 대신 `bin/jade-mcp` 를 씁니다.
+
 ## 문제 해결
 
 | 증상 | 원인과 해결 |
@@ -174,7 +199,8 @@ npm run build       # dist/ 빌드 (npm 패키지에 들어가는 것)
 구조:
 
 - `bin/jade-mcp.cjs` — npm 실행기. 보안 패치된 Node 를 찾아 `--use-system-ca` 로 `dist/main.js` 를 띄운다 (`bin/node-min.cjs` 가 최소 버전 정본)
-- `src/main.ts` — 하위 명령 분기 (서버 · `setup` · `doctor`)
+- `src/main.ts` — 하위 명령 분기 (서버 · `setup` · `doctor` · `gcal`)
+- `src/gcal/` — 구글 캘린더 동기화 (`plan.ts` 순수 계산 · `google.ts` OAuth·API · `sync.ts` 실행 순서 · `launchd.ts` 정각 실행 · `cli.ts` 하위 명령 · `env.ts` 경로·상신 직후 실행)
 - `src/runtime.ts`, `src/onboarding.ts`, `src/account.ts`, `src/doctor.ts` — 계정이 없을 때 설정 페이지 온보딩, Keychain 저장, 설치 점검
 - `src/client.ts` — 로그인, 세션 유지·복구, 공통 요청 (`commonAction.do`, `menuAction.do`)
 - `src/viewstate.ts`, `src/page.ts` — JADE 화면이 요청마다 붙이는 보안값 재현, 화면 HTML 에서 호출 토큰 찾기
