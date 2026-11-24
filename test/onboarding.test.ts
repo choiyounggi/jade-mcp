@@ -129,6 +129,16 @@ describe("페이지", () => {
     expect(res.body).toContain('value="https://ehr.jadehr.co.kr"');
     expect(res.body).toContain("Node.js");
     expect(res.body).not.toMatch(/<(link|img)\b|src="http/);
+    expect(res.body).toContain('name="companyCode"');
+  });
+
+  it("회사코드가 정해져 있으면 회사코드 칸을 보여 주지 않는다", async () => {
+    const { url } = await startOnboarding(deps({ fixedCompanyCode: "FIXEDCO" }));
+    const res = await send(url);
+    expect(res.status).toBe(200);
+    expect(res.body).not.toContain('name="companyCode"');
+    expect(res.body).not.toContain("FIXEDCO");
+    expect(res.body).toContain('name="userId"');
   });
 
   it("요청마다 nonce 가 바뀐다", async () => {
@@ -227,7 +237,7 @@ describe("저장", () => {
     const { url } = await startOnboarding(deps({ prefill: async () => ({ baseUrl: "https://jade.attacker.example" }) }));
     const page = await send(url);
     expect(page.body).toMatch(/<details open>/);
-    expect(page.body).toContain("기본값(https://ehr.jadehr.co.kr)과 다르다");
+    expect(page.body).toContain("기본값(https://ehr.jadehr.co.kr)과 다릅니다");
   });
 
   it("기본 주소면 고급 칸을 접어 두고 경고하지 않는다", async () => {
@@ -274,6 +284,21 @@ describe("저장", () => {
     const missing = await post(url, { companyCode: "1000", userId: "user01" });
     expect(missing.status).toBe(400);
     expect(JSON.parse(missing.body).message).toContain("비밀번호");
+    const noCompany = await post(url, { userId: "user01", password: PASSWORD });
+    expect(noCompany.status).toBe(400);
+    expect(JSON.parse(noCompany.body).message).toContain("회사코드");
+  });
+
+  it("회사코드가 정해져 있으면 본문에 없어도, 다른 값이 와도 정해진 값으로 저장한다", async () => {
+    const saveAccount = vi.fn(deps().saveAccount);
+    const first = await startOnboarding(deps({ saveAccount, fixedCompanyCode: "FIXEDCO" }));
+    expect((await post(first.url, { userId: "user01", password: PASSWORD })).status).toBe(200);
+    expect(saveAccount).toHaveBeenLastCalledWith({ companyCode: "FIXEDCO", userId: "user01", password: PASSWORD });
+    await vi.waitFor(async () => expect(await closed(first.url)).toBe(true));
+
+    const second = await startOnboarding(deps({ saveAccount, fixedCompanyCode: "FIXEDCO" }));
+    expect((await post(second.url, account)).status).toBe(200);
+    expect(saveAccount).toHaveBeenLastCalledWith({ ...account, companyCode: "FIXEDCO" });
   });
 
   it("성공하면 결과를 돌려준 뒤 서버를 닫고 onSaved 를 부른다", async () => {

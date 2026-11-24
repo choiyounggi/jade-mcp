@@ -9,9 +9,9 @@ import { buildConfig } from "./setup.js";
  * 다른 인자로 쪼개지므로, 깨뜨릴 수 있는 문자는 아예 받지 않는다.
  */
 function assertKeychainField(name: string, value: string): void {
-  if (!value) throw new Error(`Keychain ${name} 이 비어 있다`);
+  if (!value) throw new Error(`Keychain ${name} 이 비어 있습니다`);
   if (/["\\\u0000-\u001f\u007f]/.test(value)) {
-    throw new Error(`Keychain ${name} 에 쓸 수 없는 문자(따옴표·역슬래시·줄바꿈·제어문자)가 들어 있다`);
+    throw new Error(`Keychain ${name} 에 쓸 수 없는 문자(따옴표·역슬래시·줄바꿈·제어문자)가 들어 있습니다`);
   }
 }
 
@@ -22,7 +22,7 @@ function assertKeychainField(name: string, value: string): void {
 export function keychainAddCommand(service: string, account: string, password: string): string {
   assertKeychainField("service", service);
   assertKeychainField("account", account);
-  if (!password) throw new Error("비밀번호가 비어 있다");
+  if (!password) throw new Error("비밀번호가 비어 있습니다");
   const hex = Buffer.from(password, "utf8").toString("hex");
   return `add-generic-password -U -s "${service}" -a "${account}" -X ${hex}\n`;
 }
@@ -52,7 +52,7 @@ export async function storePasswordSilently(
   try {
     code = await run("security", ["-i"], command);
   } catch {
-    throw new Error("Keychain 저장 실패 (security 를 실행하지 못했다)");
+    throw new Error("Keychain 저장 실패 (security 를 실행하지 못했습니다)");
   }
   if (code !== 0) throw new Error(`Keychain 저장 실패 (security 종료 코드 ${code})`);
 }
@@ -87,15 +87,15 @@ const NETWORK_FAILURE = /fetch failed|ECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|CERT|c
  */
 function explainLoginFailure(e: unknown, config: JadeConfig, password: string): Error {
   const detail = e instanceof Error ? e.message : String(e);
-  if (detail.includes(password)) return new Error("JADE 로그인에 실패했다 — 회사코드·아이디·비밀번호를 확인해 줘");
+  if (detail.includes(password)) return new Error("JADE 로그인에 실패했습니다. 회사코드·아이디·비밀번호를 확인해 주세요.");
   if (NETWORK_FAILURE.test(detail)) {
-    return new Error(`JADE(${config.baseUrl})에 접속하지 못했다 — 주소와 네트워크(VPN·사내망)를 확인해 줘 (${detail})`);
+    return new Error(`JADE(${config.baseUrl})에 접속하지 못했습니다. 주소와 네트워크(VPN·사내망)를 확인해 주세요. (${detail})`);
   }
   if (e instanceof LoginError) {
     if (/2차 인증|비밀번호 초기화|메인 화면/.test(detail)) return new Error(detail);
-    return new Error(`JADE 로그인에 실패했다 — 회사코드·아이디·비밀번호를 확인해 줘 (${detail})`);
+    return new Error(`JADE 로그인에 실패했습니다. 회사코드·아이디·비밀번호를 확인해 주세요. (${detail})`);
   }
-  return new Error(`로그인을 확인하지 못했다 (${detail})`);
+  return new Error(`로그인을 확인하지 못했습니다. (${detail})`);
 }
 
 /**
@@ -103,7 +103,7 @@ function explainLoginFailure(e: unknown, config: JadeConfig, password: string): 
  * 틀린 비밀번호가 기존 Keychain 값을 덮어쓰면 그때까지 되던 MCP 가 같이 망가진다.
  */
 export async function saveAccount(input: AccountInput, deps: SaveAccountDeps = {}): Promise<SavedAccount> {
-  if (!input.password) throw new Error("비밀번호가 비어 있다");
+  if (!input.password) throw new Error("비밀번호가 비어 있습니다");
   const previous = await (deps.readPrevious ?? readConfigIfAny)();
   // 핑거프린트는 이전 값을 그대로 쓴다 — 바뀌면 JADE 가 새 기기 로그인으로 기록한다.
   const config = buildConfig(
@@ -130,7 +130,7 @@ export async function saveAccount(input: AccountInput, deps: SaveAccountDeps = {
   } catch {
     stored = undefined;
   }
-  if (stored !== input.password) throw new Error("Keychain 에 저장한 비밀번호를 다시 읽어 확인하지 못했다 — 설정은 저장하지 않았다");
+  if (stored !== input.password) throw new Error("Keychain 에 저장한 비밀번호를 다시 읽어 확인하지 못했습니다. 설정은 저장하지 않았습니다.");
   await (deps.saveConfig ?? saveConfig)(config);
   return { userId: config.userId, workDate: today.workDate, clockIn: today.clockIn, clockOut: today.clockOut };
 }

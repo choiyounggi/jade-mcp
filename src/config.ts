@@ -23,15 +23,20 @@ export async function loadConfig(path = CONFIG_PATH): Promise<JadeConfig> {
   try {
     text = await readFile(path, "utf8");
   } catch {
-    throw new Error(`설정 파일(${path})이 없다 — bin/jade-mcp-setup 으로 계정을 먼저 설정해야 한다`);
+    throw new Error(`설정 파일(${path})이 없습니다. bin/jade-mcp-setup 으로 계정을 먼저 설정해 주세요`);
   }
   const raw = JSON.parse(text) as Partial<JadeConfig>;
   const required: (keyof JadeConfig)[] = ["baseUrl", "companyCode", "userId", "keychainService", "fingerprint", "userAgent"];
   const missing = required.filter((k) => !raw[k]);
   if (missing.length > 0) {
-    throw new Error(`설정 파일(${path})에 값이 비어 있다: ${missing.join(", ")}`);
+    throw new Error(`설정 파일(${path})에 값이 비어 있습니다: ${missing.join(", ")}`);
   }
   return raw as JadeConfig;
+}
+
+/** 사내 배포 실행기가 회사코드를 정해 줄 때 쓰는 값. 비었거나 공백뿐이면 undefined — 그때는 사용자에게 묻는다. */
+export function fixedCompanyCode(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return env.JADE_COMPANY_CODE?.trim() || undefined;
 }
 
 /** 이전 설정을 기본값으로 쓸 때 부른다. 파일이 없거나 JSON 이 깨졌으면 처음 설정하는 것으로 본다. */
@@ -74,7 +79,7 @@ const ITEM_NOT_FOUND = 44;
 
 export class KeychainItemMissingError extends Error {
   constructor(service: string, account: string) {
-    super(`Keychain 에 JADE 비밀번호가 없다 (service=${service}, account=${account})`);
+    super(`Keychain 에 JADE 비밀번호가 없습니다 (service=${service}, account=${account})`);
     this.name = "KeychainItemMissingError";
   }
 }
@@ -88,10 +93,10 @@ export async function readKeychainPassword(service: string, account: string): Pr
   } catch (e) {
     if (exitCodeOf(e) === ITEM_NOT_FOUND) throw new KeychainItemMissingError(service, account);
     // stderr 에 값이 섞일 수 있어 원인 메시지는 싣지 않는다.
-    throw new Error("Keychain 에서 JADE 비밀번호를 읽지 못했다 — 키체인 접근 허용 창에서 거부했거나 키체인이 잠겨 있다. 허용·잠금 해제 뒤 다시 시도한다");
+    throw new Error("Keychain 에서 JADE 비밀번호를 읽지 못했습니다. 키체인 접근 허용 창에서 거부했거나 키체인이 잠겨 있습니다. 허용·잠금 해제 뒤 다시 시도해 주세요");
   }
   const password = parseKeychainPassword(stderr);
-  if (!password) throw new Error("Keychain 의 JADE 비밀번호를 읽지 못했다 — security 출력 형식이 예상과 다르다");
+  if (!password) throw new Error("Keychain 의 JADE 비밀번호를 읽지 못했습니다. security 출력 형식이 예상과 다릅니다");
   return password;
 }
 

@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { parseKeychainPassword, readConfigIfAny, saveConfig, type JadeConfig, readKeychainPassword, KeychainItemMissingError, keychainItemState } from "../src/config.js";
+import { fixedCompanyCode, parseKeychainPassword, readConfigIfAny, saveConfig, type JadeConfig, readKeychainPassword, KeychainItemMissingError, keychainItemState } from "../src/config.js";
 
 // 시스템 임시 폴더(/tmp·$TMPDIR) 대신 세션 작업 폴더를 쓴다 — 보안 에이전트가 그 경로의 파일 생성을 막는다.
 const base = join(process.env.CLAUDE_SESSION_TMP || join(homedir(), ".claude", "tmp", "s", "jade-mcp-test"), `config-test-${process.pid}`);
@@ -24,6 +24,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await rm(base, { recursive: true, force: true });
+});
+
+describe("fixedCompanyCode", () => {
+  it("JADE_COMPANY_CODE 값을 앞뒤 공백 없이 돌려준다", () => {
+    expect(fixedCompanyCode({ JADE_COMPANY_CODE: " 9999 " })).toBe("9999");
+  });
+
+  it("없거나 비었거나 공백뿐이면 undefined 라서 사용자에게 묻는다", () => {
+    expect(fixedCompanyCode({})).toBeUndefined();
+    expect(fixedCompanyCode({ JADE_COMPANY_CODE: "" })).toBeUndefined();
+    expect(fixedCompanyCode({ JADE_COMPANY_CODE: " \t " })).toBeUndefined();
+  });
 });
 
 describe("saveConfig", () => {
