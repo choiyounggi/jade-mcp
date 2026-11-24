@@ -8,14 +8,14 @@ describe("canRetryPassword", () => {
   });
 
   it("2차 인증·비밀번호 초기화 상태는 다시 넣어도 안 되므로 묻지 않는다", () => {
-    expect(canRetryPassword(new LoginError("2차 인증이 켜진 계정이라 자동 로그인을 할 수 없다"))).toBe(false);
+    expect(canRetryPassword(new LoginError("2차 인증이 켜진 계정이라 자동 로그인을 할 수 없습니다."))).toBe(false);
     expect(canRetryPassword(new LoginError("비밀번호 초기화 상태다 — 브라우저에서 비밀번호를 다시 설정해야 한다"))).toBe(false);
   });
 
   it("네트워크 오류처럼 로그인과 무관한 실패는 묻지 않는다", () => {
     expect(canRetryPassword(new Error("fetch failed"))).toBe(false);
     expect(canRetryPassword(new LoginError("로그인 사전 확인 실패: fetch failed (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)"))).toBe(false);
-    expect(canRetryPassword(new LoginError("로그인 뒤 메인 화면을 받지 못했다"))).toBe(false);
+    expect(canRetryPassword(new LoginError("로그인 뒤 메인 화면을 받지 못했습니다."))).toBe(false);
   });
 });
 

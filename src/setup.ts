@@ -7,7 +7,7 @@ import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { JadeClient, LoginError } from "./client.js";
-import { CONFIG_PATH, readKeychainPassword, saveConfig, type JadeConfig } from "./config.js";
+import { CONFIG_PATH, fixedCompanyCode, readKeychainPassword, saveConfig, type JadeConfig } from "./config.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { fetchMainInfo, toTodayStatus } from "./features.js";
 
@@ -37,10 +37,10 @@ export function buildConfig(answers: Partial<JadeConfig>, previous: Partial<Jade
     fingerprint: pick("fingerprint") || generateFingerprint(),
     userAgent: pick("userAgent", DEFAULTS.userAgent),
   };
-  if (!/^https:\/\//.test(config.baseUrl)) throw new Error("JADE 주소는 https:// 로 시작해야 한다");
-  if (!config.companyCode) throw new Error("회사코드가 비어 있다");
-  if (!config.userId) throw new Error("아이디가 비어 있다");
-  if (!isFingerprint(config.fingerprint)) throw new Error("핑거프린트는 브라우저 getJadeFP() 값(16진수 8자 이하)이어야 한다");
+  if (!/^https:\/\//.test(config.baseUrl)) throw new Error("JADE 주소는 https:// 로 시작해야 합니다");
+  if (!config.companyCode) throw new Error("회사코드가 비어 있습니다");
+  if (!config.userId) throw new Error("아이디가 비어 있습니다");
+  if (!isFingerprint(config.fingerprint)) throw new Error("핑거프린트는 브라우저 getJadeFP() 값(16진수 8자 이하)이어야 합니다");
   return config;
 }
 
@@ -159,7 +159,7 @@ export async function runSetup(): Promise<void> {
   const report = await runDoctor();
   console.log(`${formatDoctor(report)}\n`);
   if (report.checks.some((c) => c.status === "fail" && (c.id === "os" || c.id === "node"))) {
-    throw new Error("위 점검을 먼저 해결해야 한다");
+    throw new Error("위 점검을 먼저 해결해 주세요");
   }
   const previous = await readPrevious();
   const rl = createInterface({ input: stdin, output: stdout });
@@ -174,7 +174,7 @@ export async function runSetup(): Promise<void> {
   console.log(`JADE MCP 계정 설정 — 설정 파일: ${CONFIG_PATH}\n`);
   const answers: Partial<JadeConfig> = {
     baseUrl: await ask("JADE 주소", previous.baseUrl ?? DEFAULTS.baseUrl),
-    companyCode: await ask("회사코드 (JADE 로그인 화면에 입력하는 값)", previous.companyCode),
+    companyCode: fixedCompanyCode() ?? (await ask("회사코드 (JADE 로그인 화면에 입력하는 값)", previous.companyCode)),
     userId: await ask("아이디", previous.userId),
     fingerprint: await ask(
       "브라우저 핑거프린트 (JADE 화면의 개발자도구 콘솔에서 getJadeFP() 결과, 비우면 자동 생성)",

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createRequire } from "node:module";
 import { LoginError, type JadeClient } from "./client.js";
-import { keychainItemState, loadConfig, readConfigIfAny, readKeychainPassword } from "./config.js";
+import { fixedCompanyCode, keychainItemState, loadConfig, readConfigIfAny, readKeychainPassword } from "./config.js";
 import { z } from "zod";
 import { fetchMainInfo, toRecentApplications, toTodayStatus, toVacationBalance } from "./features.js";
 import { PendingStore } from "./pending.js";
@@ -37,7 +37,7 @@ const runtime = createRuntime({
   passwordState: (config) => keychainItemState(config.keychainService, config.userId),
   runDoctor: () => runDoctor(),
   startOnboarding: () =>
-    startOnboarding({ runDoctor: () => runDoctor(), saveAccount: (input) => saveAccount(input), prefill: () => readConfigIfAny(), onSaved: () => {
+    startOnboarding({ runDoctor: () => runDoctor(), saveAccount: (input) => saveAccount(input), prefill: () => readConfigIfAny(), fixedCompanyCode: fixedCompanyCode(), onSaved: () => {
         runtime.reset();
         // 이전 계정으로 만든 미리보기 토큰이 새 계정 세션으로 commit 되지 않게 한다.
         for (const store of [punches, vacations, remoteWorks, condolences, schedules, removals, clockRequests, overtimes, overtimeCancels, attendanceCancels, remoteReverts]) store.clear();

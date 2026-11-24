@@ -79,7 +79,7 @@ export function createRuntime(deps: RuntimeDeps): Runtime {
       const { url, reused } = await deps.startOnboarding();
       const lines = [
         `JADE 계정 설정이 필요하다 (${reason}).`,
-        `${reused ? "이미 열어 둔" : "브라우저에 연"} 설정 페이지에서 사용자가 회사코드·아이디·비밀번호를 입력해야 한다: ${url}`,
+        `${reused ? "이미 열어 둔" : "브라우저에 연"} 설정 페이지에서 사용자가 JADE 계정(아이디·비밀번호, 칸이 보이면 회사코드)을 입력해야 한다: ${url}`,
         "비밀번호는 이 대화로 받지 말고 그 페이지에만 입력하게 안내한다. 페이지가 안 열렸으면 위 주소를 직접 연다.",
         "사용자가 저장을 마쳤다고 하면 같은 요청을 다시 한다.",
       ];

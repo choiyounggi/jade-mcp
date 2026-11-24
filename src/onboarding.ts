@@ -15,6 +15,8 @@ export interface OnboardingDeps {
   onSaved?: () => void;
   /** 폼에 미리 채울 값(이전 설정). 비밀번호는 받지 않는다. */
   prefill?: () => Promise<Partial<Pick<AccountInput, "companyCode" | "userId" | "baseUrl">>>;
+  /** 값이 있으면 회사코드 칸을 보여 주지 않고, 요청 본문과 상관없이 이 값으로 저장한다. */
+  fixedCompanyCode?: string;
 }
 
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
@@ -81,7 +83,7 @@ async function launch(deps: OnboardingDeps): Promise<Session> {
 
   const server = createServer((req, res) => {
     handle(req, res).catch(() => {
-      if (!res.headersSent) sendJson(res, 500, { ok: false, message: "로컬 설정 서버 내부 오류" });
+      if (!res.headersSent) sendJson(res, 500, { ok: false, message: "로컬 설정 서버에서 오류가 났습니다." });
       else res.destroy();
     });
   });
@@ -93,29 +95,29 @@ async function launch(deps: OnboardingDeps): Promise<Session> {
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     // 다른 사이트가 자기 도메인을 127.0.0.1 로 돌려(DNS 리바인딩) 이 서버를 부르면 Host 가 그 도메인이 된다.
-    if (req.headers.host !== `127.0.0.1:${port}`) return sendJson(res, 403, { ok: false, message: "허용되지 않은 주소" });
+    if (req.headers.host !== `127.0.0.1:${port}`) return sendJson(res, 403, { ok: false, message: "허용되지 않은 주소입니다." });
     const path = (req.url ?? "/").split("?")[0] ?? "/";
     const [first = "", ...rest] = path.slice(1).split("/");
-    if (!tokenMatches(first)) return sendJson(res, 404, { ok: false, message: "없는 페이지" });
+    if (!tokenMatches(first)) return sendJson(res, 404, { ok: false, message: "없는 페이지입니다." });
 
     if (rest.length === 0 && req.method === "GET") return sendPage(res, deps);
     if (rest.length === 1 && rest[0] === "save" && req.method === "POST") return save(req, res);
-    return sendJson(res, 404, { ok: false, message: "없는 페이지" });
+    return sendJson(res, 404, { ok: false, message: "없는 페이지입니다." });
   }
 
   async function save(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (req.headers.origin !== `http://127.0.0.1:${port}`) {
-      return sendJson(res, 403, { ok: false, message: "이 페이지에서 보낸 요청이 아니다" });
+      return sendJson(res, 403, { ok: false, message: "이 페이지에서 보낸 요청이 아닙니다." });
     }
     const contentType = (req.headers["content-type"] ?? "").split(";")[0]?.trim().toLowerCase();
-    if (contentType !== "application/json") return sendJson(res, 415, { ok: false, message: "JSON 으로 보내야 한다" });
-    if (busy) return sendJson(res, 409, { ok: false, message: "이미 확인 중이다 — 끝날 때까지 기다려 줘" });
+    if (contentType !== "application/json") return sendJson(res, 415, { ok: false, message: "JSON 으로 보내야 합니다." });
+    if (busy) return sendJson(res, 409, { ok: false, message: "이미 확인하고 있습니다. 끝날 때까지 잠시 기다려 주세요." });
 
     busy = true;
     try {
       const body = await readBody(req);
-      if (body === undefined) return sendJson(res, 413, { ok: false, message: "요청이 너무 크다" }, true);
-      const input = parseInput(body);
+      if (body === undefined) return sendJson(res, 413, { ok: false, message: "요청이 너무 큽니다." }, true);
+      const input = parseInput(body, deps.fixedCompanyCode);
       if (typeof input === "string") return sendJson(res, 400, { ok: false, message: input });
 
       attempts++;
@@ -132,7 +134,7 @@ async function launch(deps: OnboardingDeps): Promise<Session> {
       } catch (e) {
         const message = safeMessage(e, input.password);
         if (attempts >= MAX_ATTEMPTS) {
-          sendJson(res, 400, { ok: false, message: `${message}\n시도 횟수(${MAX_ATTEMPTS}회)를 넘어 이 페이지를 닫았다 — Claude Code 에 다시 요청해 새 페이지를 열어 줘`, closed: true }, true, () => closeServer(server));
+          sendJson(res, 400, { ok: false, message: `${message}\n시도 횟수(${MAX_ATTEMPTS}회)를 넘어 이 페이지를 닫았습니다. Claude Code 에 다시 요청해 새 페이지를 열어 주세요.`, closed: true }, true, () => closeServer(server));
         } else {
           sendJson(res, 400, { ok: false, message });
         }
@@ -156,7 +158,7 @@ async function launch(deps: OnboardingDeps): Promise<Session> {
   // MCP 프로세스가 끝날 때 이 서버 때문에 기다리지 않게 한다.
   server.unref();
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("로컬 설정 서버의 포트를 알 수 없다");
+  if (!address || typeof address === "string") throw new Error("로컬 설정 서버의 포트를 알 수 없습니다");
   port = address.port;
 
   const timer = setTimeout(() => {
@@ -190,27 +192,28 @@ async function readBody(req: IncomingMessage): Promise<string | undefined> {
 
 const MAX_PASSWORD_LENGTH = 256;
 
-function parseInput(body: string): AccountInput | string {
+function parseInput(body: string, fixedCompanyCode?: string): AccountInput | string {
   let raw: unknown;
   try {
     raw = JSON.parse(body);
   } catch {
-    return "요청 본문이 JSON 이 아니다";
+    return "요청 본문이 JSON 이 아닙니다.";
   }
-  if (!raw || typeof raw !== "object") return "요청 본문이 비어 있다";
-  const { companyCode, userId, password, baseUrl } = raw as Record<string, unknown>;
-  if (typeof companyCode !== "string" || !companyCode.trim()) return "회사코드를 입력해 줘";
-  if (typeof userId !== "string" || !userId.trim()) return "아이디를 입력해 줘";
-  if (typeof password !== "string" || !password) return "비밀번호를 입력해 줘";
-  if (password.length > MAX_PASSWORD_LENGTH) return `비밀번호가 너무 길다 (${MAX_PASSWORD_LENGTH}자 이하)`;
-  if (baseUrl !== undefined && typeof baseUrl !== "string") return "JADE 주소가 올바르지 않다";
+  if (!raw || typeof raw !== "object") return "요청 본문이 비어 있습니다.";
+  const { userId, password, baseUrl } = raw as Record<string, unknown>;
+  const companyCode = fixedCompanyCode ?? (raw as Record<string, unknown>).companyCode;
+  if (typeof companyCode !== "string" || !companyCode.trim()) return "회사코드를 입력해 주세요.";
+  if (typeof userId !== "string" || !userId.trim()) return "아이디를 입력해 주세요.";
+  if (typeof password !== "string" || !password) return "비밀번호를 입력해 주세요.";
+  if (password.length > MAX_PASSWORD_LENGTH) return `비밀번호가 너무 깁니다 (${MAX_PASSWORD_LENGTH}자 이하).`;
+  if (baseUrl !== undefined && typeof baseUrl !== "string") return "JADE 주소가 올바르지 않습니다.";
   return { companyCode, userId, password, ...(baseUrl?.trim() ? { baseUrl: baseUrl.trim() } : {}) };
 }
 
 /** 브라우저로 나가는 메시지에 입력한 비밀번호가 섞이면 원문 대신 일반 문구를 낸다. */
 function safeMessage(e: unknown, password: string): string {
-  const message = e instanceof Error && e.message ? e.message : "저장하지 못했다";
-  return message.includes(password) ? "저장하지 못했다 — 입력값을 확인해 줘" : message;
+  const message = e instanceof Error && e.message ? e.message : "저장하지 못했습니다.";
+  return message.includes(password) ? "저장하지 못했습니다. 입력값을 확인해 주세요." : message;
 }
 
 function securityHeaders(nonce: string): Record<string, string> {
@@ -250,7 +253,7 @@ async function sendPage(res: ServerResponse, deps: OnboardingDeps): Promise<void
   ]);
   const nonce = randomBytes(16).toString("base64");
   res.writeHead(200, { ...securityHeaders(nonce), "Content-Type": "text/html; charset=utf-8" });
-  res.end(renderPage(report, prefill, nonce));
+  res.end(renderPage(report, prefill, nonce, deps.fixedCompanyCode));
 }
 
 function escapeHtml(value: string): string {
@@ -261,12 +264,12 @@ const STATUS_TEXT: Record<DoctorCheck["status"], string> = { ok: "통과", warn:
 
 function renderChecks(result: { report: DoctorReport } | { error: string }): string {
   if ("error" in result) {
-    return `<p class="note bad">환경 점검을 하지 못했다 — ${escapeHtml(result.error)}. 계정 저장은 그대로 할 수 있다.</p>`;
+    return `<p class="note bad">환경 점검을 하지 못했습니다 — ${escapeHtml(result.error)}. 계정 저장은 그대로 할 수 있습니다.</p>`;
   }
   const fails = result.report.checks.filter((c) => c.status === "fail");
   const fixes = fails.length
     ? `<section class="fixes" aria-labelledby="fix-title">
-  <h2 id="fix-title">먼저 해결할 것</h2>
+  <h2 id="fix-title">먼저 해결해 주세요</h2>
   <ol>${fails
     .map((c) => `<li><strong>${escapeHtml(c.label)}</strong><span>${escapeHtml(c.fix ?? c.detail)}</span></li>`)
     .join("")}</ol>
@@ -280,7 +283,7 @@ function renderChecks(result: { report: DoctorReport } | { error: string }): str
   return `${fixes}
 <section class="checks" aria-labelledby="check-title">
   <h2 id="check-title">이 맥 점검 결과</h2>
-  ${rows ? `<ul>${rows}</ul>` : `<p class="note">점검 항목이 없다.</p>`}
+  ${rows ? `<ul>${rows}</ul>` : `<p class="note">점검 항목이 없습니다.</p>`}
 </section>`;
 }
 
@@ -288,6 +291,7 @@ function renderPage(
   doctor: { report: DoctorReport } | { error: string },
   prefill: Partial<Pick<AccountInput, "companyCode" | "userId" | "baseUrl">>,
   nonce: string,
+  fixedCompanyCode?: string,
 ): string {
   const value = (v: string | undefined) => escapeHtml(v ?? "");
   const customBaseUrl = !!prefill.baseUrl && prefill.baseUrl.replace(/\/+$/, "") !== DEFAULT_BASE_URL;
@@ -428,14 +432,14 @@ footer { margin-top: var(--s5); color: var(--ink-soft); font-size: .8rem; }
 <main>
 <p class="eyebrow">jade-mcp · 이 맥 안에서만 열리는 설정 페이지</p>
 <h1>JADE 계정 연결</h1>
-<p class="lede">JADE 에 실제로 로그인해 본 뒤에만 저장한다. 비밀번호는 macOS Keychain 에만 들어가고 Claude 대화나 설정 파일에는 남지 않는다.</p>
+<p class="lede">JADE 에 실제로 로그인해 본 뒤에만 저장합니다. 비밀번호는 macOS Keychain 에만 들어가고 Claude 대화나 설정 파일에는 남지 않습니다.</p>
 ${renderChecks(doctor)}
 <form id="account" novalidate>
-  <fieldset id="fields">
+  <fieldset id="fields">${fixedCompanyCode ? "" : `
     <label>회사코드
       <input name="companyCode" autocomplete="organization" required value="${value(prefill.companyCode)}">
       <span class="hint">JADE 로그인 화면에 넣는 회사코드</span>
-    </label>
+    </label>`}
     <label>아이디
       <input name="userId" autocomplete="username" autocapitalize="off" spellcheck="false" required value="${value(prefill.userId)}">
     </label>
@@ -444,10 +448,10 @@ ${renderChecks(doctor)}
     </label>
     <details${customBaseUrl ? " open" : ""}>
       <summary>고급 — JADE 주소</summary>${customBaseUrl ? `
-      <p class="hint warn">저장된 주소가 기본값(${value(DEFAULT_BASE_URL)})과 다르다. 비밀번호는 이 주소로 전송되니 회사 JADE 주소가 맞는지 확인한다.</p>` : ""}
+      <p class="hint warn">저장된 주소가 기본값(${value(DEFAULT_BASE_URL)})과 다릅니다. 비밀번호는 이 주소로 전송되니 회사 JADE 주소가 맞는지 확인해 주세요.</p>` : ""}
       <label>JADE 주소
         <input name="baseUrl" type="url" inputmode="url" autocapitalize="off" spellcheck="false" value="${value(prefill.baseUrl || DEFAULT_BASE_URL)}">
-        <span class="hint">회사가 따로 쓰는 주소가 있을 때만 바꾼다</span>
+        <span class="hint">회사가 따로 쓰는 주소가 있을 때만 바꿔 주세요</span>
       </label>
     </details>
     <button type="submit" id="submit">로그인 확인 후 저장</button>
@@ -455,11 +459,11 @@ ${renderChecks(doctor)}
   <p class="status" id="status" role="status" aria-live="polite"></p>
 </form>
 <section class="done" id="done" hidden aria-live="polite">
-  <strong>저장했다</strong>
+  <strong>저장했습니다</strong>
   <p id="done-today"></p>
-  <p>Claude Code 로 돌아가 요청을 다시 하면 된다. 이 창은 닫아도 된다.</p>
+  <p>Claude Code 로 돌아가 요청을 다시 해 주세요. 이 창은 닫아도 됩니다.</p>
 </section>
-<footer>이 페이지는 일정 시간이 지나거나 저장이 끝나면 닫힌다.</footer>
+<footer>이 페이지는 일정 시간이 지나거나 저장이 끝나면 닫힙니다.</footer>
 </main>
 <script nonce="${nonce}">
 (() => {
@@ -476,19 +480,21 @@ ${renderChecks(doctor)}
     event.preventDefault();
     if (button.disabled) return;
     const data = new FormData(form);
+    // 회사코드 칸이 없으면 서버가 정해 둔 값을 쓴다.
+    const askCompany = !!form.elements.companyCode;
     const body = {
       companyCode: String(data.get("companyCode") || ""),
       userId: String(data.get("userId") || ""),
       password: String(data.get("password") || ""),
       baseUrl: String(data.get("baseUrl") || ""),
     };
-    if (!body.companyCode.trim() || !body.userId.trim() || !body.password) {
-      setStatus("error", "회사코드·아이디·비밀번호를 모두 넣어 줘");
+    if ((askCompany && !body.companyCode.trim()) || !body.userId.trim() || !body.password) {
+      setStatus("error", askCompany ? "회사코드·아이디·비밀번호를 모두 입력해 주세요." : "아이디와 비밀번호를 모두 입력해 주세요.");
       return;
     }
     button.disabled = true;
     button.textContent = "확인하는 중…";
-    setStatus("busy", "JADE 에 로그인해 보는 중이다. 몇 초 걸린다.");
+    setStatus("busy", "JADE 에 로그인해 보고 있습니다. 몇 초 걸립니다.");
     try {
       // 페이지의 Referrer-Policy(no-referrer) 를 따르면 브라우저가 Origin 을 null 로 보낸다. 서버는 Origin 을 확인한다.
       const res = await fetch(location.pathname + "/save", {
@@ -498,7 +504,7 @@ ${renderChecks(doctor)}
         referrerPolicy: "same-origin",
         cache: "no-store",
       });
-      const json = await res.json().catch(() => ({ ok: false, message: "응답을 읽지 못했다 (HTTP " + res.status + ")" }));
+      const json = await res.json().catch(() => ({ ok: false, message: "응답을 읽지 못했습니다 (HTTP " + res.status + ")." }));
       if (json.ok) {
         form.elements.password.value = "";
         form.hidden = true;
@@ -507,13 +513,13 @@ ${renderChecks(doctor)}
         document.getElementById("done").hidden = false;
         return;
       }
-      setStatus("error", json.message || "저장하지 못했다");
+      setStatus("error", json.message || "저장하지 못했습니다.");
       if (json.closed) {
         fields.disabled = true;
         return;
       }
     } catch {
-      setStatus("error", "설정 서버에 닿지 못했다 — 페이지가 닫혔을 수 있다. Claude Code 에 다시 요청해 새 페이지를 열어 줘");
+      setStatus("error", "설정 서버에 연결하지 못했습니다. 페이지가 닫혔을 수 있으니 Claude Code 에 다시 요청해 새 페이지를 열어 주세요.");
       fields.disabled = true;
       return;
     }

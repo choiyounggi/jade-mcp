@@ -132,8 +132,8 @@ export class JadeClient {
     } catch (e) {
       throw new LoginError(`로그인 사전 확인 실패: ${(e as Error).message}`);
     }
-    if (before.etc.RESET_POP === "Y") throw new LoginError("비밀번호 초기화 상태다 — 브라우저에서 비밀번호를 다시 설정해야 한다");
-    if (before.etc.AUTH_2FA_USE_YN === "Y") throw new LoginError("2차 인증이 켜진 계정이라 자동 로그인을 할 수 없다");
+    if (before.etc.RESET_POP === "Y") throw new LoginError("비밀번호 초기화 상태입니다. 브라우저에서 비밀번호를 다시 설정해 주세요.");
+    if (before.etc.AUTH_2FA_USE_YN === "Y") throw new LoginError("2차 인증이 켜진 계정이라 자동 로그인을 할 수 없습니다.");
 
     try {
       await this.call(loginCtx, LOGIN_CLASS, "login", params);
@@ -145,7 +145,7 @@ export class JadeClient {
     entry.__viewState = toJsonString(entry);
     const mainPage = await this.http.request("/", { method: "POST", form: entry });
     const main = parsePage(mainPage.text);
-    if (!main.otp.hunelOtpVal) throw new LoginError("로그인 뒤 메인 화면을 받지 못했다");
+    if (!main.otp.hunelOtpVal) throw new LoginError("로그인 뒤 메인 화면을 받지 못했습니다.");
     this.main = main;
   }
 

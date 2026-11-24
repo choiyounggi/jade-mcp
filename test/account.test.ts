@@ -34,8 +34,8 @@ describe("keychainAddCommand", () => {
   });
 
   it("빈 값은 거부한다", () => {
-    expect(() => keychainAddCommand("", "user", "pw")).toThrow("비어 있다");
-    expect(() => keychainAddCommand("jade-mcp", "user", "")).toThrow("비밀번호가 비어 있다");
+    expect(() => keychainAddCommand("", "user", "pw")).toThrow("비어 있습니다");
+    expect(() => keychainAddCommand("jade-mcp", "user", "")).toThrow("비밀번호가 비어 있습니다");
   });
 });
 
@@ -65,7 +65,7 @@ describe("storePasswordSilently", () => {
     const error = await storePasswordSilently("jade-mcp", "user01", PASSWORD, async () => {
       throw new Error(`spawn failed with ${PASSWORD_HEX}`);
     }).catch((e: Error) => e);
-    expect((error as Error).message).toBe("Keychain 저장 실패 (security 를 실행하지 못했다)");
+    expect((error as Error).message).toBe("Keychain 저장 실패 (security 를 실행하지 못했습니다)");
   });
 
   it("거부할 문자가 있으면 security 를 부르지 않는다", async () => {
@@ -120,7 +120,7 @@ describe("saveAccount", () => {
     const login = fakeClient(async () => mainInfo({ WORK_YMD: "20261103", C_IN_HM_DP: "09:01", C_OUT_HM_DP: "" }), {});
     await expect(
       saveAccount({ companyCode: "1000", userId: "user01", password: PASSWORD }, { ...r.deps, createClient: login, readPassword: async () => "truncated" }),
-    ).rejects.toThrow(/다시 읽어 확인하지 못했다/);
+    ).rejects.toThrow(/다시 읽어 확인하지 못했습니다/);
     expect(r.saved).toEqual([]);
   });
 
@@ -172,7 +172,7 @@ describe("saveAccount", () => {
       { companyCode: "1000", userId: "user01", password: PASSWORD },
       { ...r.deps, createClient: fakeClient(async () => Promise.reject(new LoginError("로그인 실패: 아이디 또는 비밀번호가 맞지 않습니다"))) },
     ).catch((e: Error) => e);
-    expect((error as Error).message).toContain("회사코드·아이디·비밀번호를 확인해 줘");
+    expect((error as Error).message).toContain("회사코드·아이디·비밀번호를 확인해 주세요");
     expect((error as Error).message).toContain("아이디 또는 비밀번호가 맞지 않습니다");
     expect(r.log).toEqual([]);
   });
@@ -193,7 +193,7 @@ describe("saveAccount", () => {
     await expect(
       saveAccount(
         { companyCode: "1000", userId: "user01", password: "pw" },
-        { ...r.deps, createClient: fakeClient(async () => Promise.reject(new LoginError("2차 인증이 켜진 계정이라 자동 로그인을 할 수 없다"))) },
+        { ...r.deps, createClient: fakeClient(async () => Promise.reject(new LoginError("2차 인증이 켜진 계정이라 자동 로그인을 할 수 없습니다."))) },
       ),
     ).rejects.toThrow(/^2차 인증/);
   });
@@ -205,7 +205,7 @@ describe("saveAccount", () => {
       { ...r.deps, createClient: fakeClient(async () => Promise.reject(new LoginError(`로그인 실패: ${PASSWORD}`))) },
     ).catch((e: Error) => e);
     expect((error as Error).message).not.toContain(PASSWORD);
-    expect((error as Error).message).toContain("확인해 줘");
+    expect((error as Error).message).toContain("확인해 주세요");
   });
 
   it("빈 비밀번호·Keychain 에 못 쓰는 아이디는 로그인 전에 거부한다", async () => {
